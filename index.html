@@ -122,8 +122,11 @@
   .mday .dot { position: absolute; left: 50%; bottom: 4px; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: var(--a1); }
   .mday .dot.full { background: var(--ok); }
 
-  .banner { display: flex; align-items: center; gap: 10px; justify-content: space-between; flex-wrap: wrap; background: rgba(255,200,87,.07); border: 1px solid rgba(255,200,87,.3); color: #ffd98a; border-radius: 12px; padding: 9px 14px; margin-bottom: 10px; font-size: 14px; }
-  .banner button { color: #ffd98a; border-color: rgba(255,200,87,.4); }
+  /* ---------- view switch ---------- */
+  .views { display: inline-flex; gap: 4px; background: var(--panel); border: 1px solid var(--line); padding: 4px; border-radius: 12px; margin-bottom: 22px; }
+  .views button { background: transparent; border: 0; color: var(--muted); padding: 6px 18px; border-radius: 8px; font-weight: 600; transition: .15s; }
+  .views button:hover { color: var(--text); }
+  .views button.on { background: var(--grad); color: #07090f; }
 
   /* ---------- editor fields ---------- */
   .lbl { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--a1); margin: 2px 0 0; }
@@ -189,6 +192,7 @@
   .body { min-width: 0; }
   .t-title { font-weight: 700; font-size: 19px; line-height: 1.3; color: #fff; letter-spacing: -.01em; overflow-wrap: anywhere; cursor: pointer; transition: color .2s; padding-top: 1px; }
   .badge { display: inline-block; vertical-align: middle; margin-left: 8px; font-size: 11px; font-weight: 600; letter-spacing: .04em; color: var(--a2); border: 1px solid rgba(56,214,255,.4); border-radius: 20px; padding: 0 8px; }
+  .badge.carry { color: #ffd98a; border-color: rgba(255,200,87,.4); }
   .t-desc { color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 6px; font-size: 13.5px; line-height: 1.55; border-left: 2px solid var(--line-2); padding-left: 10px; }
   .task.done .t-title { color: var(--faint); text-decoration: line-through; text-decoration-color: var(--faint); }
   .task.done .t-desc, .task.done .thumbs { opacity: .45; }
@@ -202,6 +206,11 @@
   .icon.del:hover { color: var(--danger); }
   .icon svg { width: 17px; height: 17px; }
   .task.editing { display: block; padding: 0; border: 0; background: none; box-shadow: none; }
+  .task.asset { grid-template-columns: auto 1fr auto; }
+  .task.asset .t-title { cursor: default; }
+  @media (hover: none) { .task.asset { grid-template-columns: 1fr auto; } }
+  .group { display: flex; align-items: baseline; gap: 8px; margin: 26px 2px 2px; font-size: 13px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  .group em { font-style: normal; color: var(--faint); letter-spacing: 0; }
 
   .empty { text-align: center; color: var(--muted); padding: 50px 20px; border: 1px dashed var(--line-2); border-radius: var(--radius); }
   .empty big { display: block; font-size: 38px; margin-bottom: 6px; }
@@ -234,6 +243,12 @@
 </head>
 <body>
 <div class="wrap">
+  <nav class="views" id="views">
+    <button data-view="checklist">Checklist</button>
+    <button data-view="assets">Assets</button>
+  </nav>
+
+  <div id="checklistView">
   <header>
     <div>
       <div class="hello" id="date"></div>
@@ -258,8 +273,19 @@
     <button class="btn ghost" id="uncheck" title="Uncheck everything on this day">Reset day</button>
   </div>
 
-  <div id="banner"></div>
   <div id="list"></div>
+  </div>
+
+  <div id="assetsView" hidden>
+    <header>
+      <div>
+        <div class="hello">Always here, every day</div>
+        <h1>Assets &amp; <span>projects</span></h1>
+      </div>
+    </header>
+    <div id="assetComposer"></div>
+    <div id="assetList"></div>
+  </div>
 
   <footer>
     <button class="btn ghost" id="export">Export backup</button>
@@ -343,16 +369,17 @@
     },
   };
 
-  // task = { id, title, desc, images[], date: 'YYYY-MM-DD', repeat: 'daily' | '' }
+  // task  = { id, title, desc, images[], date: 'YYYY-MM-DD', repeat: 'daily' | '' }
   // done  = { 'YYYY-MM-DD': { taskId: true } }
-  let state = { tasks: [], done: {} };
+  // asset = { id, title, desc, images[], kind: 'project' | 'asset' }
+  let state = { tasks: [], done: {}, assets: [] };
   let saveTimer;
 
   // older versions had no dates: those tasks were daily, so keep them repeating
   function normalize(data) {
     const first = Object.keys(data.done || {}).sort()[0] || dayKey();
     const tasks = data.tasks.map(t => t.date ? t : { ...t, date: first, repeat: 'daily' });
-    return { tasks, done: data.done || {} };
+    return { tasks, done: data.done || {}, assets: Array.isArray(data.assets) ? data.assets : [] };
   }
   async function load() {
     let data;
@@ -361,6 +388,7 @@
     if (data && Array.isArray(data.tasks)) state = normalize(data);
   }
   function save() {
+    finCache = null;
     clearTimeout(saveTimer);
     saveTimer = setTimeout(async () => {
       try { await idb.set(state); }
@@ -393,10 +421,17 @@
   }
 
   /* ================= editor (used for "new" and "edit") ================= */
-  function createEditor({ task, date, onSave, onCancel, autofocus }) {
+  function createEditor({ task, date, onSave, onCancel, autofocus, asset }) {
     let images = [...(task?.images || [])];
-    const title = h('input', { class: 'f-title', type: 'text', placeholder: 'What needs to be done?', maxlength: 200, 'aria-label': 'Title' });
-    const desc = h('textarea', { class: 'f-desc', placeholder: 'Notes, details, links… (optional)', rows: 2, 'aria-label': 'Description' });
+    const title = h('input', { class: 'f-title', type: 'text', placeholder: asset ? 'Asset or project name' : 'What needs to be done?', maxlength: 200, 'aria-label': 'Title' });
+    const desc = h('textarea', { class: 'f-desc', placeholder: asset ? 'Details, status, links… (optional)' : 'Notes, details, links… (optional)', rows: 2, 'aria-label': 'Description' });
+    const kindName = 'kind-' + uid();
+    const kinds = [['project', 'Ongoing project'], ['asset', 'Asset']].map(([v, label]) => {
+      const r = h('input', { type: 'radio', name: kindName, value: v });
+      r.checked = (task?.kind || 'project') === v;
+      return h('label', { class: 'rep' }, r, h('span', { text: label }));
+    });
+    const kindVal = () => kinds.find(l => $('input', l).checked)?.querySelector('input').value || 'project';
     const dateIn = h('input', { type: 'date', 'aria-label': 'Date' });
     const repeat = h('input', { type: 'checkbox' });
     title.value = task?.title || '';
@@ -424,7 +459,9 @@
         root.classList.remove('shake'); void root.offsetWidth; root.classList.add('shake');
         title.focus(); return;
       }
-      onSave({ title: t, desc: desc.value.trim(), images: [...images], date: dateIn.value || dayKey(), repeat: repeat.checked ? 'daily' : '' });
+      onSave(asset
+        ? { title: t, desc: desc.value.trim(), images: [...images], kind: kindVal() }
+        : { title: t, desc: desc.value.trim(), images: [...images], date: dateIn.value || dayKey(), repeat: repeat.checked ? 'daily' : '' });
       if (!task) { title.value = ''; desc.value = ''; images = []; repeat.checked = false; grow(); drawStrip(); title.focus(); }
     };
 
@@ -434,17 +471,17 @@
     title.addEventListener('keydown', esc); desc.addEventListener('keydown', esc);
 
     const root = h('form', { class: 'editor', onsubmit: e => { e.preventDefault(); submit(); } },
-      h('label', { class: 'lbl', text: 'Title' }), title,
-      h('label', { class: 'lbl d', text: 'Description' }), desc,
+      h('label', { class: 'lbl', text: asset ? 'Name' : 'Title' }), title,
+      h('label', { class: 'lbl d', text: asset ? 'Notes' : 'Description' }), desc,
       strip,
       h('div', { class: 'opts' },
         h('button', { class: 'btn', type: 'button', html: ICON.image + '<span>Image</span>', onclick: () => fileInput.click() }),
-        dateIn,
-        h('label', { class: 'rep', title: 'Show this task every day from the chosen date' }, repeat, h('span', { text: 'Repeat daily' }))),
+        asset ? kinds : [dateIn,
+          h('label', { class: 'rep', title: 'Show this task every day from the chosen date' }, repeat, h('span', { text: 'Repeat daily' }))]),
       h('div', { class: 'bar2' },
         h('span', { class: 'hint', html: '<kbd>Ctrl</kbd>+<kbd>V</kbd> pastes an image · drag &amp; drop works too' }),
         onCancel && h('button', { class: 'btn ghost', type: 'button', text: 'Cancel', onclick: onCancel }),
-        h('button', { class: 'btn primary', type: 'submit', html: (task ? ICON.check : ICON.plus) + `<span>${task ? 'Save' : 'Add task'}</span>` })),
+        h('button', { class: 'btn primary', type: 'submit', html: (task ? ICON.check : ICON.plus) + `<span>${task ? 'Save' : asset ? 'Add' : 'Add task'}</span>` })),
       fileInput,
       h('div', { class: 'drop-msg', text: 'Drop image to attach' }));
 
@@ -474,10 +511,27 @@
   let sel = today;                       // the day being viewed
   let monthOpen = false;
   let viewMonth = sel.slice(0, 7);       // 'YYYY-MM' shown in the month grid
-  let mainEditor;
+  let mainEditor, assetEditor;
+  let view = location.hash === '#assets' ? 'assets' : 'checklist';
 
   const doneFor = k => (state.done[k] ||= {});
-  const tasksFor = k => state.tasks.filter(t => t.repeat === 'daily' ? k >= t.date : t.date === k);
+  // the day a one-off task was checked off (undefined while it is still open)
+  let finCache = null;
+  const finishedOn = t => {
+    if (!finCache) {
+      finCache = {};
+      for (const k of Object.keys(state.done).sort()) for (const id in state.done[k]) if (state.done[k][id]) (finCache[id] ||= []).push(k);
+    }
+    return (finCache[t.id] || []).find(k => k >= t.date);
+  };
+  // one-off tasks stay on every day after their date (up to today) until they are checked off
+  const tasksFor = k => state.tasks.filter(t => {
+    if (t.repeat === 'daily') return k >= t.date;
+    if (t.date === k) return true;
+    if (t.date > k || k > today) return false;
+    const fin = finishedOn(t);
+    return !fin || fin >= k;
+  });
   const stats = k => { const l = tasksFor(k), d = state.done[k] || {}; return { total: l.length, done: l.filter(t => d[t.id]).length }; };
 
   function setSel(k) {
@@ -486,14 +540,20 @@
     render();
   }
   function addTask(data) {
-    state.tasks.push({ id: uid(), ...data });
+    const id = uid();
+    state.tasks.push({ id, ...data });
     save();
-    if (data.date !== sel && !(data.repeat && data.date < sel)) toast(`Added to ${niceDay(data.date)}, ${fmt(data.date, { month: 'short', day: 'numeric' })}`);
+    if (!tasksFor(sel).some(t => t.id === id)) toast(`Added to ${niceDay(data.date)}, ${fmt(data.date, { month: 'short', day: 'numeric' })}`);
     render();
   }
   function toggle(id) {
-    const d = doneFor(sel);
-    if (d[id]) delete d[id]; else d[id] = true;
+    const d = doneFor(sel), t = state.tasks.find(x => x.id === id);
+    if (d[id]) delete d[id];
+    else {
+      // a one-off task is finished on exactly one day
+      if (t && t.repeat !== 'daily') for (const k in state.done) delete state.done[k][id];
+      d[id] = true;
+    }
     save(); render();
   }
   function remove(id) {
@@ -502,16 +562,38 @@
     save(); render();
     toast(task.repeat ? 'Daily task deleted from all days' : 'Task deleted', () => { state.tasks.splice(idx, 0, task); save(); render(); });
   }
-  function reorder(fromId, toId, after) {
-    const [m] = state.tasks.splice(state.tasks.findIndex(t => t.id === fromId), 1);
-    const to = state.tasks.findIndex(t => t.id === toId);
-    state.tasks.splice(after ? to + 1 : to, 0, m);
+  function reorder(fromId, toId, after, arr = state.tasks) {
+    const [m] = arr.splice(arr.findIndex(t => t.id === fromId), 1);
+    const to = arr.findIndex(t => t.id === toId);
+    arr.splice(after ? to + 1 : to, 0, m);
     save(); render();
   }
   function nudge(id, dir) {
     const list = tasksFor(sel), i = list.findIndex(t => t.id === id), j = i + dir;
     if (j < 0 || j >= list.length) return;
     reorder(id, list[j].id, dir > 0);
+  }
+
+  const assetsOf = kind => state.assets.filter(a => (a.kind || 'project') === kind);
+  function addAsset(data) {
+    state.assets.push({ id: uid(), ...data });
+    save(); render();
+  }
+  function removeAsset(id) {
+    const idx = state.assets.findIndex(a => a.id === id);
+    const [a] = state.assets.splice(idx, 1);
+    save(); render();
+    toast(`"${a.title}" deleted`, () => { state.assets.splice(idx, 0, a); save(); render(); });
+  }
+  function nudgeAsset(a, dir) {
+    const list = assetsOf(a.kind || 'project'), j = list.indexOf(a) + dir;
+    if (j < 0 || j >= list.length) return;
+    reorder(a.id, list[j].id, dir > 0, state.assets);
+  }
+  function setView(v) {
+    view = v; editingId = null;
+    history.replaceState(null, '', v === 'assets' ? '#assets' : location.pathname + location.search);
+    render(); scrollTo(0, 0);
   }
 
   const linkify = text => {
@@ -539,7 +621,9 @@
       h('span', { class: 'num', text: n, title: `Task ${n}` }),
       h('button', { class: 'check', 'aria-label': isDone ? 'Mark as not done' : 'Mark as done', 'aria-pressed': String(isDone), html: ICON.check, onclick: () => toggle(t.id) }),
       h('div', { class: 'body' },
-        h('div', { class: 't-title', onclick: () => toggle(t.id) }, t.title, t.repeat ? h('span', { class: 'badge', text: '↻ daily' }) : null),
+        h('div', { class: 't-title', onclick: () => toggle(t.id) }, t.title,
+          t.repeat ? h('span', { class: 'badge', text: '↻ daily' })
+          : t.date < sel ? h('span', { class: 'badge carry', title: 'Not finished yet, carried over', text: `↪ since ${fmt(t.date, { month: 'short', day: 'numeric' })}` }) : null),
         t.desc && h('div', { class: 't-desc' }, linkify(t.desc)),
         t.images?.length ? thumbs(t.images) : null),
       h('div', { class: 'actions' },
@@ -548,23 +632,65 @@
         h('button', { class: 'icon', title: 'Edit', 'aria-label': 'Edit', html: ICON.edit, onclick: () => { editingId = t.id; render(); } }),
         h('button', { class: 'icon del', title: 'Delete', 'aria-label': 'Delete', html: ICON.trash, onclick: () => remove(t.id) })));
 
-    // reorder via drag
-    card.addEventListener('dragstart', e => { card.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/x-task', t.id); });
+    return dragSort(card, t.id, 'text/x-task', (from, after) => reorder(from, t.id, after));
+  }
+
+  // reorder via drag (the grip turns dragging on)
+  function dragSort(card, id, type, onDrop) {
+    card.addEventListener('dragstart', e => { card.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData(type, id); });
     card.addEventListener('dragend', () => { card.draggable = false; card.classList.remove('dragging'); clearOver(); });
     card.addEventListener('dragover', e => {
-      if (!e.dataTransfer.types.includes('text/x-task')) return;
+      if (!e.dataTransfer.types.includes(type)) return;
       e.preventDefault(); clearOver();
       const r = card.getBoundingClientRect();
       card.classList.add(e.clientY < r.top + r.height / 2 ? 'over-top' : 'over-bottom');
     });
     card.addEventListener('drop', e => {
-      const from = e.dataTransfer.getData('text/x-task');
-      if (!from || from === t.id) return;
+      const from = e.dataTransfer.getData(type);
+      if (!from || from === id) return;
       e.preventDefault();
       const r = card.getBoundingClientRect();
-      reorder(from, t.id, e.clientY >= r.top + r.height / 2);
+      onDrop(from, e.clientY >= r.top + r.height / 2);
     });
     return card;
+  }
+
+  function assetCard(a, i, count) {
+    if (editingId === a.id) {
+      const ed = createEditor({
+        task: a, asset: true, autofocus: true,
+        onCancel: () => { editingId = null; render(); },
+        onSave: data => { Object.assign(a, data); editingId = null; save(); render(); },
+      });
+      return h('div', { class: 'task editing', 'data-id': a.id }, ed);
+    }
+    const card = h('div', { class: 'task asset', 'data-id': a.id },
+      h('span', { class: 'grip', title: 'Drag to reorder', text: '⋮⋮',
+        onmousedown: () => { card.draggable = true; }, onmouseup: () => { card.draggable = false; } }),
+      h('div', { class: 'body' },
+        h('div', { class: 't-title' }, a.title),
+        a.desc && h('div', { class: 't-desc' }, linkify(a.desc)),
+        a.images?.length ? thumbs(a.images) : null),
+      h('div', { class: 'actions' },
+        h('button', { class: 'icon', title: 'Move up', 'aria-label': 'Move up', html: ICON.up, disabled: i === 0, onclick: () => nudgeAsset(a, -1) }),
+        h('button', { class: 'icon', title: 'Move down', 'aria-label': 'Move down', html: ICON.down, disabled: i === count - 1, onclick: () => nudgeAsset(a, 1) }),
+        h('button', { class: 'icon', title: 'Edit', 'aria-label': 'Edit', html: ICON.edit, onclick: () => { editingId = a.id; render(); } }),
+        h('button', { class: 'icon del', title: 'Delete', 'aria-label': 'Delete', html: ICON.trash, onclick: () => removeAsset(a.id) })));
+    return dragSort(card, a.id, 'text/x-asset', (from, after) => reorder(from, a.id, after, state.assets));
+  }
+
+  function renderAssets() {
+    const box = $('#assetList'); box.replaceChildren();
+    if (!state.assets.length) {
+      box.append(h('div', { class: 'empty', style: 'margin-top:26px' }, h('big', { text: '📌' }), 'Nothing here yet. Add your assets and ongoing projects above — they stay here until you delete them.'));
+      return;
+    }
+    for (const [kind, label] of [['project', 'Ongoing projects'], ['asset', 'Assets']]) {
+      const items = assetsOf(kind);
+      if (!items.length) continue;
+      box.append(h('div', { class: 'group' }, label, h('em', { text: items.length })),
+        h('div', { style: 'display:grid;gap:10px;margin-top:10px' }, items.map((a, i) => assetCard(a, i, items.length))));
+    }
   }
   const clearOver = () => document.querySelectorAll('.over-top,.over-bottom').forEach(n => n.classList.remove('over-top', 'over-bottom'));
 
@@ -619,6 +745,13 @@
   }
 
   function render() {
+    document.querySelectorAll('#views button').forEach(b => b.classList.toggle('on', b.dataset.view === view));
+    $('#checklistView').hidden = view !== 'checklist';
+    $('#assetsView').hidden = view !== 'assets';
+    if (view === 'assets') renderAssets(); else renderChecklist();
+  }
+
+  function renderChecklist() {
     // header
     const hr = new Date().getHours();
     $('#date').textContent = `${niceDay(sel)} · ${fmt(sel, { month: 'long', day: 'numeric' })}`;
@@ -640,15 +773,6 @@
     const tabs = $('#tabs'); tabs.replaceChildren();
     [['all', 'All', total], ['open', 'To do', total - nDone], ['done', 'Done', nDone]].forEach(([k, label, n]) =>
       tabs.append(h('button', { class: filter === k ? 'on' : '', onclick: () => { filter = k; render(); } }, label, h('em', { text: n }))));
-
-    // unfinished one-off tasks from earlier days
-    const banner = $('#banner'); banner.replaceChildren();
-    if (sel === today) {
-      const late = state.tasks.filter(t => t.repeat !== 'daily' && t.date < today && !(state.done[t.date] || {})[t.id]);
-      if (late.length) banner.append(h('div', { class: 'banner' },
-        h('span', { text: `${late.length} unfinished task${late.length > 1 ? 's' : ''} from earlier days` }),
-        h('button', { class: 'btn sm', text: 'Move to today', onclick: () => { late.forEach(t => { t.date = today; }); save(); render(); toast('Moved to today'); } })));
-    }
 
     // list (numbers = position in the day's full list, so they stay put when filtering)
     const list = $('#list'); list.replaceChildren();
@@ -677,10 +801,11 @@
   document.addEventListener('paste', e => {
     const files = [...(e.clipboardData?.items || [])].filter(i => i.kind === 'file' && i.type.startsWith('image/')).map(i => i.getAsFile()).filter(Boolean);
     if (!files.length) return;
-    const ed = e.target.closest?.('.editor') || mainEditor;
+    const def = view === 'assets' ? assetEditor : mainEditor;
+    const ed = e.target.closest?.('.editor') || def;
     e.preventDefault();
     ed._addFiles(files);
-    if (ed === mainEditor && !e.target.closest?.('.editor')) ed._focus();
+    if (ed === def && !e.target.closest?.('.editor')) ed._focus();
   });
 
   // stop the browser from navigating away if an image is dropped outside an editor
@@ -688,6 +813,9 @@
 
   $('#lightbox').addEventListener('click', () => $('#lightbox').classList.remove('on'));
   document.addEventListener('keydown', e => { if (e.key === 'Escape') $('#lightbox').classList.remove('on'); });
+
+  document.querySelectorAll('#views button').forEach(b => b.addEventListener('click', () => { if (b.dataset.view !== view) setView(b.dataset.view); }));
+  window.addEventListener('hashchange', () => { const v = location.hash === '#assets' ? 'assets' : 'checklist'; if (v !== view) { view = v; editingId = null; render(); } });
 
   $('#uncheck').addEventListener('click', () => {
     const k = sel, prev = { ...doneFor(k) };
@@ -716,7 +844,7 @@
   // midnight rollover while the page is open
   const checkDay = () => {
     const k = dayKey();
-    if (k !== today) { const wasToday = sel === today; today = k; if (wasToday) sel = k; mainEditor?._setDate(sel); render(); }
+    if (k !== today) { const wasToday = sel === today; today = k; if (wasToday) { sel = k; viewMonth = k.slice(0, 7); } mainEditor?._setDate(sel); render(); }
   };
   setInterval(checkDay, 30000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) checkDay(); });
@@ -725,6 +853,8 @@
     await load();
     mainEditor = createEditor({ date: sel, onSave: addTask });
     $('#composer').append(mainEditor);
+    assetEditor = createEditor({ asset: true, onSave: addAsset });
+    $('#assetComposer').append(assetEditor);
     render();
   })();
 })();
