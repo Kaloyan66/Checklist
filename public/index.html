@@ -237,6 +237,20 @@
 
   footer { margin: 10px 0 0; padding: 0 16px 80px; display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 
+  /* ---------- sync ---------- */
+  .sync-status { color: var(--faint); font-size: 13px; align-self: center; }
+  .sync-status.err { color: #ffd98a; }
+  dialog#syncDlg { width: min(460px, calc(100% - 32px)); background: var(--panel); color: var(--text); border: 1px solid var(--line-2); border-radius: var(--radius); padding: 22px; box-shadow: 0 30px 80px rgba(0,0,0,.7); }
+  dialog#syncDlg::backdrop { background: rgba(5,6,10,.75); backdrop-filter: blur(4px); }
+  #syncDlg h3 { margin: 0 0 8px; font-size: 20px; }
+  #syncDlg p { color: var(--muted); margin: 8px 0; font-size: 14px; }
+  #syncDlg .row { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+  #syncDlg input { flex: 1; min-width: 0; background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 10px; padding: 8px 10px; color: var(--text); font: 13px ui-monospace, monospace; }
+  #syncDlg .qr { display: grid; place-items: center; margin: 12px 0; }
+  #syncDlg .qr img { background: #fff; padding: 10px; border-radius: 12px; width: 190px; height: 190px; image-rendering: pixelated; }
+  #syncDlg .warn { font-size: 12.5px; color: var(--faint); }
+  #syncDlg .close { position: absolute; top: 10px; right: 10px; }
+
   /* ---------- lightbox & toast ---------- */
   #lightbox { position: fixed; inset: 0; background: rgba(5,6,10,.92); display: none; place-items: center; z-index: 50; cursor: zoom-out; padding: 20px; backdrop-filter: blur(6px); }
   #lightbox.on { display: grid; }
@@ -256,7 +270,11 @@
     .ring { width: 70px; height: 70px; }
     .ring svg { width: 70px; height: 70px; }
     .thumb { width: 78px; height: 78px; }
+    /* give the title the full width; edit/move/delete buttons go on their own row */
+    .task { grid-template-columns: auto auto auto 1fr; }
+    .task .actions { grid-column: 2 / -1; justify-content: flex-end; margin: -6px 0 -8px; }
   }
+  @media (max-width: 520px) and (hover: none) { .task { grid-template-columns: auto auto 1fr; } }
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 </head>
@@ -296,11 +314,14 @@
 </div>
 
 <footer>
+  <button class="btn ghost" id="syncBtn">☁ Sync devices</button>
+  <span class="sync-status" id="syncStatus"></span>
   <button class="btn ghost" id="export">Export backup</button>
   <button class="btn ghost" id="import">Import backup</button>
   <input type="file" id="importFile" accept="application/json" hidden>
 </footer>
 
+<dialog id="syncDlg"></dialog>
 <div id="lightbox"><img alt=""></div>
 <div id="toast"><span></span><button hidden>Undo</button></div>
 
@@ -376,16 +397,17 @@
     },
   };
 
-  // task  = { id, title, desc, images[], date: 'YYYY-MM-DD', repeat: 'daily' | '' }
-  // done  = { 'YYYY-MM-DD': { taskId: true } }
-  // asset = { id, title, desc, images[], kind: 'project' | 'asset' }
-  let state = { tasks: [], done: {}, assets: [] };
+  // task  = { id, title, desc, images[], date: 'YYYY-MM-DD', repeat: 'daily' | '', u: last change (ms) }
+  // done  = { 'YYYY-MM-DD': { taskId: +time checked | -time unchecked } }   (old data: true)
+  // asset = { id, title, desc, images[], kind: 'project' | 'asset', u }
+  // del   = { id: time deleted },  ou = { tasks: time reordered, assets: … }   — used to merge devices
+  let state = { tasks: [], done: {}, assets: [], del: {}, ou: {} };
 
   // older versions had no dates: those tasks were daily, so keep them repeating
   function normalize(data) {
     const first = Object.keys(data.done || {}).sort()[0] || dayKey();
     const tasks = data.tasks.map(t => t.date ? t : { ...t, date: first, repeat: 'daily' });
-    return { tasks, done: data.done || {}, assets: Array.isArray(data.assets) ? data.assets : [], savedAt: data.savedAt || 0 };
+    return { tasks, done: data.done || {}, assets: Array.isArray(data.assets) ? data.assets : [], del: data.del || {}, ou: data.ou || {}, savedAt: data.savedAt || 0 };
   }
   // everything is kept in two places in the browser (IndexedDB + localStorage); the newest copy wins
   async function load() {
@@ -398,6 +420,10 @@
   }
   // saves right away on every change (no delay), so closing the tab can't lose anything
   function save() {
+    persist();
+    scheduleSync();
+  }
+  function persist() {
     finCache = null;
     state.savedAt = Date.now();
     let mirrored = false;
@@ -420,7 +446,7 @@
   const openImage = src => { const lb = $('#lightbox'); $('img', lb).src = src; lb.classList.add('on'); };
 
   function thumbs(images, onRemove) {
-    return h('div', { class: 'thumbs' }, images.map((src, i) =>
+    return h('div', { class: 'thumbs' }, images.map((src, i) => src.startsWith('img:') ? null :
       h('div', { class: 'thumb', onclick: () => openImage(src) },
         h('img', { src, alt: 'attachment' }),
         onRemove && h('button', { class: 'x', type: 'button', title: 'Remove image', onclick: e => { e.stopPropagation(); onRemove(i); } }, '×'))));
@@ -532,12 +558,13 @@
   const sideEditors = {};                // kept alive so re-renders don't wipe what you're typing
 
   const doneFor = k => (state.done[k] ||= {});
+  const isDone = (k, id) => state.done[k]?.[id] > 0;
   // the day a one-off task was checked off (undefined while it is still open)
   let finCache = null;
   const finishedOn = t => {
     if (!finCache) {
       finCache = {};
-      for (const k of Object.keys(state.done).sort()) for (const id in state.done[k]) if (state.done[k][id]) (finCache[id] ||= []).push(k);
+      for (const k of Object.keys(state.done).sort()) for (const id in state.done[k]) if (state.done[k][id] > 0) (finCache[id] ||= []).push(k);
     }
     return (finCache[t.id] || []).find(k => k >= t.date);
   };
@@ -549,7 +576,7 @@
     const fin = finishedOn(t);
     return !fin || fin >= k;
   });
-  const stats = k => { const l = tasksFor(k), d = state.done[k] || {}; return { total: l.length, done: l.filter(t => d[t.id]).length }; };
+  const stats = k => { const l = tasksFor(k); return { total: l.length, done: l.filter(t => isDone(k, t.id)).length }; };
 
   function setSel(k) {
     sel = k; viewMonth = k.slice(0, 7); editingId = null;
@@ -558,31 +585,33 @@
   }
   function addTask(data) {
     const id = uid();
-    state.tasks.push({ id, ...data });
+    state.tasks.push({ id, ...data, u: Date.now() });
     save();
     if (!tasksFor(sel).some(t => t.id === id)) toast(`Added to ${niceDay(data.date)}, ${fmt(data.date, { month: 'short', day: 'numeric' })}`);
     render();
   }
   function toggle(id) {
-    const d = doneFor(sel), t = state.tasks.find(x => x.id === id);
-    if (d[id]) delete d[id];
+    const d = doneFor(sel), t = state.tasks.find(x => x.id === id), now = Date.now();
+    if (d[id] > 0) d[id] = -now;
     else {
       // a one-off task is finished on exactly one day
-      if (t && t.repeat !== 'daily') for (const k in state.done) delete state.done[k][id];
-      d[id] = true;
+      if (t && t.repeat !== 'daily') for (const k in state.done) if (state.done[k][id] > 0) state.done[k][id] = -now;
+      d[id] = now;
     }
     save(); render();
   }
   function remove(id) {
     const idx = state.tasks.findIndex(t => t.id === id);
     const [task] = state.tasks.splice(idx, 1);
+    state.del[id] = Date.now();
     save(); render();
-    toast(task.repeat ? 'Daily task deleted from all days' : 'Task deleted', () => { state.tasks.splice(idx, 0, task); save(); render(); });
+    toast(task.repeat ? 'Daily task deleted from all days' : 'Task deleted', () => { delete state.del[id]; task.u = Date.now(); state.tasks.splice(idx, 0, task); save(); render(); });
   }
   function reorder(fromId, toId, after, arr = state.tasks) {
     const [m] = arr.splice(arr.findIndex(t => t.id === fromId), 1);
     const to = arr.findIndex(t => t.id === toId);
     arr.splice(after ? to + 1 : to, 0, m);
+    state.ou[arr === state.assets ? 'assets' : 'tasks'] = Date.now();
     save(); render();
   }
   function nudge(id, dir) {
@@ -593,17 +622,18 @@
 
   const assetsOf = kind => state.assets.filter(a => (a.kind || 'project') === kind);
   function addAsset(data) {
-    state.assets.push({ id: uid(), ...data });
+    state.assets.push({ id: uid(), ...data, u: Date.now() });
     save(); render();
   }
   function removeAsset(id) {
     const idx = state.assets.findIndex(a => a.id === id);
     const [a] = state.assets.splice(idx, 1);
+    state.del[id] = Date.now();
     save(); render();
-    toast(`"${a.title}" deleted`, () => { state.assets.splice(idx, 0, a); save(); render(); });
+    toast(`"${a.title}" deleted`, () => { delete state.del[id]; a.u = Date.now(); state.assets.splice(idx, 0, a); save(); render(); });
   }
   function nudgeAsset(a, dir) {
-    const list = assetsOf(a.kind || 'project'), j = list.indexOf(a) + dir;
+    const list = assetsOf(a.kind || 'project'), j = list.findIndex(x => x.id === a.id) + dir;
     if (j < 0 || j >= list.length) return;
     reorder(a.id, list[j].id, dir > 0, state.assets);
   }
@@ -622,16 +652,16 @@
       const ed = createEditor({
         task: t, autofocus: true,
         onCancel: () => { editingId = null; render(); },
-        onSave: data => { Object.assign(t, data); editingId = null; save(); render(); },
+        onSave: data => { Object.assign(state.tasks.find(x => x.id === t.id) || {}, data, { u: Date.now() }); editingId = null; save(); render(); },
       });
       return h('div', { class: 'task editing', 'data-id': t.id }, ed);
     }
-    const isDone = !!doneFor(sel)[t.id];
-    const card = h('div', { class: 'task' + (isDone ? ' done' : ''), 'data-id': t.id },
+    const done = isDone(sel, t.id);
+    const card = h('div', { class: 'task' + (done ? ' done' : ''), 'data-id': t.id },
       h('span', { class: 'grip', title: 'Drag to reorder', text: '⋮⋮',
         onmousedown: () => { card.draggable = true; }, onmouseup: () => { card.draggable = false; } }),
       h('span', { class: 'num', text: n, title: `Task ${n}` }),
-      h('button', { class: 'check', 'aria-label': isDone ? 'Mark as not done' : 'Mark as done', 'aria-pressed': String(isDone), html: ICON.check, onclick: () => toggle(t.id) }),
+      h('button', { class: 'check', 'aria-label': done ? 'Mark as not done' : 'Mark as done', 'aria-pressed': String(done), html: ICON.check, onclick: () => toggle(t.id) }),
       h('div', { class: 'body' },
         h('div', { class: 't-title', onclick: () => toggle(t.id) }, t.title,
           t.repeat ? h('span', { class: 'badge', text: '↻ daily' })
@@ -672,7 +702,7 @@
       const ed = createEditor({
         task: a, asset: true, autofocus: true,
         onCancel: () => { editingId = null; render(); },
-        onSave: data => { Object.assign(a, data); editingId = null; save(); render(); },
+        onSave: data => { Object.assign(state.assets.find(x => x.id === a.id) || {}, data, { u: Date.now() }); editingId = null; save(); render(); },
       });
       return h('div', { class: 'task editing', 'data-id': a.id }, ed);
     }
@@ -776,9 +806,8 @@
       : ['Looking back. ', h('span', { text: 'Here is that day.' })]));
 
     const day = tasksFor(sel);
-    const d = doneFor(sel);
     const total = day.length;
-    const nDone = day.filter(t => d[t.id]).length;
+    const nDone = day.filter(t => isDone(sel, t.id)).length;
     $('#ringText').textContent = `${nDone}/${total}`;
     $('.ring .fg').style.strokeDashoffset = 169.65 * (1 - (total ? nDone / total : 0));
 
@@ -791,12 +820,185 @@
 
     // list (numbers = position in the day's full list, so they stay put when filtering)
     const list = $('#list'); list.replaceChildren();
-    const rows = day.map((t, i) => [t, i + 1]).filter(([t]) => filter === 'all' || (filter === 'done') === !!d[t.id] || editingId === t.id);
+    const rows = day.map((t, i) => [t, i + 1]).filter(([t]) => filter === 'all' || (filter === 'done') === isDone(sel, t.id) || editingId === t.id);
     if (!total) list.append(h('div', { class: 'empty' }, h('big', { text: sel < today ? '🕰️' : '✨' }), sel < today ? 'Nothing was planned for this day.' : 'Nothing planned for this day yet. Add a task above.'));
     else if (!rows.length) list.append(filter === 'open'
       ? h('div', { class: 'empty win' }, h('big', { text: '🎉' }), 'Everything done. Nice work!')
       : h('div', { class: 'empty' }, h('big', { text: '🌱' }), 'Nothing checked off yet.'));
     else rows.forEach(([t, n]) => list.append(taskCard(t, n, total)));
+  }
+
+  /* ================= sync between devices ================= */
+  // Every device that knows the same sync code reads/writes one copy stored by netlify/functions/sync.mjs.
+  // Changes are merged item by item (newest edit wins), so working on phone and laptop never wipes anything.
+  let syncKey = null;
+  try { syncKey = localStorage.getItem('sync-key'); } catch {}
+  let syncing = false, syncAgain = false, syncTimer, lastSynced = 0, syncErr = '';
+  const hashes = new Map(), byHash = new Map();       // image data URL <-> SHA-256
+  const uploaded = new Set(JSON.parse((() => { try { return localStorage.getItem('sync-uploaded'); } catch {} })() || '[]'));
+
+  const sha256 = async str => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str)))].map(b => b.toString(16).padStart(2, '0')).join('');
+  const hashOf = async src => { let x = hashes.get(src); if (!x) { x = await sha256(src); hashes.set(src, x); byHash.set(x, src); } return x; };
+  const api = (method, path = '', body) => fetch('/api/sync' + path, { method, body, cache: 'no-store', headers: { 'x-sync-key': syncKey } });
+  // stable JSON (sorted keys) so equal data always compares equal
+  const canon = x => JSON.stringify(x, (k, v) => v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a < b ? -1 : 1)) : v);
+
+  // the stored copy uses "img:<hash>" instead of the (large) image itself
+  async function slim(st) {
+    const items = arr => Promise.all((arr || []).map(async t => ({ ...t, images: await Promise.all((t.images || []).map(async src => src.startsWith('data:') ? 'img:' + await hashOf(src) : src)) })));
+    return { tasks: await items(st.tasks), assets: await items(st.assets), done: st.done || {}, del: st.del || {}, ou: st.ou || {} };
+  }
+  async function fetchImage(hash) {
+    if (byHash.has(hash)) return byHash.get(hash);
+    try {
+      const r = await api('GET', '/img/' + hash);
+      if (!r.ok) return null;
+      const src = await r.text();
+      hashes.set(src, hash); byHash.set(hash, src); uploaded.add(hash);
+      return src;
+    } catch { return null; }
+  }
+  async function hydrate(st) {
+    const items = arr => Promise.all((arr || []).map(async t => ({ ...t, images: await Promise.all((t.images || []).map(async src => src.startsWith('img:') ? (await fetchImage(src.slice(4))) || src : src)) })));
+    return { ...st, tasks: await items(st.tasks), assets: await items(st.assets) };
+  }
+
+  function merge(a, b) {
+    const del = { ...(a.del || {}) };
+    for (const [id, t] of Object.entries(b.del || {})) if (!(del[id] >= t)) del[id] = t;
+    const ou = {};
+    const list = name => {
+      const A = a[name] || [], B = b[name] || [];
+      const newest = new Map();
+      for (const x of [...A, ...B]) { const cur = newest.get(x.id); if (!cur || (x.u || 0) > (cur.u || 0)) newest.set(x.id, x); }
+      const [first, second] = (a.ou?.[name] || 0) > (b.ou?.[name] || 0) ? [A, B] : [B, A];   // newest ordering wins (ties: the stored copy)
+      ou[name] = Math.max(a.ou?.[name] || 0, b.ou?.[name] || 0);
+      return [...new Set([...first, ...second].map(x => x.id))].map(id => newest.get(id)).filter(x => !(del[x.id] >= (x.u || 0)));
+    };
+    const done = {};
+    for (const src of [a.done, b.done]) for (const [k, m] of Object.entries(src || {})) {
+      const out = (done[k] ||= {});
+      for (const [id, v] of Object.entries(m)) if (!(id in out) || Math.abs(+v) > Math.abs(+out[id])) out[id] = v;
+    }
+    return { tasks: list('tasks'), assets: list('assets'), done, del, ou };
+  }
+
+  function scheduleSync(ms = 800) {
+    if (!syncKey) return;
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(sync, ms);
+  }
+  async function sync() {
+    if (!syncKey) return;
+    if (syncing) { syncAgain = true; return; }
+    syncing = true; syncAgain = false; showSync('Syncing…');
+    try {
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const r = await api('GET');
+        if (r.status === 401) throw new Error('code');
+        if (!r.ok) throw new Error('net');
+        const remote = await r.json();
+        const localSlim = await slim(state);
+        const remoteSlim = remote.state ? await slim(normalize(remote.state)) : null;
+        let merged = remoteSlim ? merge(localSlim, remoteSlim) : localSlim;
+
+        // bring remote changes into this device
+        if (canon(merged) !== canon(localSlim)) {
+          const full = await hydrate(merged);
+          state = { ...merge(state, full), savedAt: state.savedAt };   // re-merge: picks up edits made while we were downloading
+          persist();
+          if (!editingId) render();
+          merged = await slim(state);
+        }
+        if (remoteSlim && canon(merged) === canon(remoteSlim)) break;
+
+        // upload images the server doesn't have yet, then the checklist
+        const remoteImgs = new Set([...(remoteSlim?.tasks || []), ...(remoteSlim?.assets || [])].flatMap(t => t.images || []));
+        for (const t of [...merged.tasks, ...merged.assets]) for (const ref of t.images || []) {
+          const hash = ref.slice(4);
+          if (!ref.startsWith('img:') || uploaded.has(hash) || remoteImgs.has(ref) || !byHash.has(hash)) continue;
+          const up = await api('PUT', '/img/' + hash, byHash.get(hash));
+          if (!up.ok) throw new Error('net');
+          uploaded.add(hash);
+        }
+        try { localStorage.setItem('sync-uploaded', JSON.stringify([...uploaded])); } catch {}
+        const w = await api('PUT', '', JSON.stringify({ baseRev: remote.rev, state: merged }));
+        if (w.status === 409) continue;                     // the other device saved first: merge again
+        if (!w.ok) throw new Error(w.status === 413 ? 'big' : 'net');
+        break;
+      }
+      lastSynced = Date.now(); syncErr = '';
+    } catch (e) {
+      syncErr = e.message === 'code' ? 'Sync code not accepted' : e.message === 'big' ? 'Too much data to sync' : 'Offline — will sync when back online';
+    } finally {
+      syncing = false;
+      showSync();
+      if (syncAgain) scheduleSync(100);
+    }
+  }
+  function showSync(msg) {
+    const el = $('#syncStatus');
+    el.classList.toggle('err', !msg && !!syncErr);
+    el.textContent = !syncKey ? '' : msg || (syncErr ? '⚠ ' + syncErr : lastSynced ? `✓ Synced ${new Date(lastSynced).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '');
+    $('#syncBtn').textContent = syncKey ? '☁ Sync on' : '☁ Sync devices';
+    if ($('#syncDlg').open) syncDialog();
+  }
+  function setSyncKey(k) {
+    syncKey = k; lastSynced = 0; syncErr = '';
+    uploaded.clear();
+    try { k ? localStorage.setItem('sync-key', k) : localStorage.removeItem('sync-key'); localStorage.removeItem('sync-uploaded'); } catch {}
+    showSync(); if (k) sync();
+  }
+  // opened through a sync link from another device
+  function connectFromLink() {
+    const m = location.hash.match(/^#sync=([A-Za-z0-9_-]{20,100})$/);
+    if (!m) return;
+    history.replaceState(null, '', location.pathname + location.search);
+    if (m[1] !== syncKey) { setSyncKey(m[1]); toast('☁ Sync connected — this device now shares your checklist'); }
+  }
+  const newCode = () => { const b = crypto.getRandomValues(new Uint8Array(24)); return btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_'); };
+  const syncLink = () => `${location.origin}${location.pathname}#sync=${syncKey}`;
+
+  let qrLib;
+  const loadQR = () => qrLib ||= new Promise((res, rej) => {
+    const sc = h('script', { src: 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js' });
+    sc.onload = () => res(window.qrcode); sc.onerror = rej; document.head.append(sc);
+  });
+
+  function syncDialog() {
+    const dlg = $('#syncDlg');
+    const close = h('button', { class: 'icon close', 'aria-label': 'Close', text: '✕', onclick: () => dlg.close() });
+    if (!syncKey) {
+      const input = h('input', { placeholder: 'Paste the sync code or link', 'aria-label': 'Sync code' });
+      dlg.replaceChildren(close,
+        h('h3', { text: 'Sync your devices' }),
+        h('p', { text: 'Right now your checklist lives only on this device. Turn on sync to see the same checklist, projects and assets on your phone and laptop.' }),
+        h('div', { class: 'row' }, h('button', { class: 'btn primary', text: 'Turn on sync', onclick: () => setSyncKey(newCode()) })),
+        h('p', { text: 'Already turned it on on another device? Paste its code here:' }),
+        h('div', { class: 'row' }, input, h('button', { class: 'btn', text: 'Connect', onclick: () => {
+          const k = (input.value.match(/(?:sync=)?([A-Za-z0-9_-]{20,100})\s*$/) || [])[1];
+          if (k) setSyncKey(k); else toast('That doesn\'t look like a sync code');
+        } })));
+      return;
+    }
+    const qr = h('div', { class: 'qr' });
+    const link = h('input', { readonly: true, value: syncLink(), onclick: e => e.target.select() });
+    dlg.replaceChildren(close,
+      h('h3', { text: '☁ Sync is on' }),
+      h('p', { text: syncErr ? '⚠ ' + syncErr : lastSynced ? `Last synced at ${new Date(lastSynced).toLocaleTimeString()}.` : 'Syncing…' }),
+      h('p', { text: 'To connect your phone, scan this code with its camera, or send yourself the link below and open it there. Do this once per device.' }),
+      qr,
+      h('div', { class: 'row' }, link, h('button', { class: 'btn', text: 'Copy', onclick: async () => {
+        try { await navigator.clipboard.writeText(syncLink()); toast('Link copied'); } catch { link.select(); }
+      } })),
+      h('p', { class: 'warn', text: '🔒 Keep this link private: anyone who has it can see and change your checklist.' }),
+      h('div', { class: 'row' }, h('button', { class: 'btn ghost', text: 'Turn off sync on this device', onclick: () => {
+        if (confirm('Stop syncing this device? Your checklist stays here, it just won\'t update from your other devices.')) setSyncKey(null);
+      } })));
+    loadQR().then(q => {
+      const code = q(0, 'M'); code.addData(syncLink()); code.make();
+      qr.append(h('img', { alt: 'QR code for the sync link', src: code.createDataURL(6, 0) }));
+    }).catch(() => {});
   }
 
   /* ================= toast ================= */
@@ -829,11 +1031,20 @@
   document.addEventListener('keydown', e => { if (e.key === 'Escape') $('#lightbox').classList.remove('on'); });
 
   $('#uncheck').addEventListener('click', () => {
-    const k = sel, prev = { ...doneFor(k) };
-    if (!Object.keys(prev).length) return;
-    state.done[k] = {}; save(); render();
-    toast('Day reset', () => { state.done[k] = prev; save(); render(); });
+    const k = sel, ids = Object.keys(doneFor(k)).filter(id => isDone(k, id));
+    if (!ids.length) return;
+    const now = Date.now();
+    ids.forEach(id => { state.done[k][id] = -now; }); save(); render();
+    toast('Day reset', () => { const t = Date.now(); ids.forEach(id => { state.done[k][id] = t; }); save(); render(); });
   });
+
+  $('#syncBtn').addEventListener('click', () => { syncDialog(); $('#syncDlg').showModal(); });
+  $('#syncDlg').addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.close(); });
+  const syncNow = () => { if (!document.hidden) sync(); };
+  document.addEventListener('visibilitychange', syncNow);
+  window.addEventListener('focus', syncNow);
+  window.addEventListener('online', syncNow);
+  setInterval(syncNow, 60000);
 
   $('#export').addEventListener('click', () => {
     const a = h('a', { href: URL.createObjectURL(new Blob([JSON.stringify(state)], { type: 'application/json' })), download: `checklist-${dayKey()}.json` });
@@ -862,6 +1073,10 @@
 
   (async () => {
     await load();
+    connectFromLink();
+    window.addEventListener('hashchange', connectFromLink);
+    showSync();
+    sync();
     mainEditor = createEditor({ date: sel, onSave: addTask, draftKey: 'daily-checklist-draft' });
     $('#composer').append(mainEditor);
     render();
