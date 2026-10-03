@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0a0c12">
+<title>Daily Checklist</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23101320'/%3E%3Cpath d='M18 33l10 10 20-22' fill='none' stroke='%238b7bff' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #0a0c12;
+    --panel: #11141d;
+    --panel-2: #161a26;
+    --line: #232838;
+    --line-2: #2f3550;
+    --text: #e8eaf3;
+    --muted: #8a90a8;
+    --faint: #5b617a;
+    --a1: #8b7bff;
+    --a2: #38d6ff;
+    --ok: #3ddc97;
+    --danger: #ff6b81;
+    --grad: linear-gradient(135deg, var(--a1), var(--a2));
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; }
+  html { color-scheme: dark; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(900px 500px at 85% -10%, rgba(139,123,255,.18), transparent 60%),
+      radial-gradient(700px 500px at -10% 10%, rgba(56,214,255,.12), transparent 60%),
+      var(--bg);
+    background-attachment: fixed;
+    color: var(--text);
+    font: 15px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 740px; margin: 0 auto; padding: 36px 16px 90px; }
+
+  /* ---------- header ---------- */
+  header { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 22px; }
+  .hello { font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  h1 { margin: 4px 0 10px; font-size: clamp(26px, 5vw, 34px); line-height: 1.15; letter-spacing: -.02em; }
+  h1 span { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .week { display: flex; gap: 6px; align-items: center; }
+  .week i { width: 10px; height: 10px; border-radius: 50%; background: var(--line-2); display: block; }
+  .week i.today { outline: 2px solid var(--line-2); outline-offset: 2px; }
+  .week small { color: var(--faint); font-size: 12px; margin-left: 6px; }
+  .ring { position: relative; width: 84px; height: 84px; flex: none; }
+  .ring svg { transform: rotate(-90deg); }
+  .ring circle { fill: none; stroke-width: 7; }
+  .ring .bg { stroke: var(--line); }
+  .ring .fg { stroke: url(#g); stroke-linecap: round; transition: stroke-dashoffset .6s cubic-bezier(.2,.8,.2,1); }
+  .ring b { position: absolute; inset: 0; display: grid; place-items: center; font-size: 17px; }
+  .ring b small { display: block; font-size: 11px; color: var(--muted); font-weight: 500; margin-top: -6px; text-align: center; }
+
+  /* ---------- editor ---------- */
+  .editor {
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px 16px 12px;
+    transition: border-color .2s, box-shadow .2s;
+    position: relative;
+  }
+  .editor:focus-within, .editor.drag { border-color: var(--a1); box-shadow: 0 0 0 4px rgba(139,123,255,.14), 0 10px 40px -12px rgba(139,123,255,.35); }
+  .editor.shake { animation: shake .3s; border-color: var(--danger); }
+  @keyframes shake { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+  .editor input, .editor textarea {
+    width: 100%; background: transparent; border: 0; outline: 0; color: var(--text); font: inherit; resize: none;
+  }
+  .editor .f-title { font-size: 17px; font-weight: 600; padding: 4px 0; }
+  .editor .f-desc { color: var(--muted); padding: 2px 0 6px; min-height: 44px; max-height: 260px; }
+  .editor input::placeholder, .editor textarea::placeholder { color: var(--faint); }
+  .editor .bar { display: flex; align-items: center; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
+  .editor .hint { color: var(--faint); font-size: 12.5px; flex: 1; min-width: 160px; }
+  kbd { background: var(--line); border: 1px solid var(--line-2); border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; font: 11.5px ui-monospace, monospace; color: var(--muted); }
+  .drop-msg { position: absolute; inset: 0; border-radius: inherit; display: none; place-items: center; background: rgba(10,12,18,.8); color: var(--a2); font-weight: 600; pointer-events: none; }
+  .editor.drag .drop-msg { display: grid; }
+
+  button { font: inherit; cursor: pointer; }
+  .btn {
+    border: 1px solid var(--line-2); background: var(--panel-2); color: var(--text);
+    border-radius: 10px; padding: 7px 13px; transition: .15s; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn:hover { border-color: var(--a1); background: #1c2133; }
+  .btn.primary { border: 0; background: var(--grad); color: #07090f; font-weight: 700; }
+  .btn.primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
+  .btn.ghost { background: transparent; border-color: transparent; color: var(--muted); }
+  .btn.ghost:hover { color: var(--text); background: var(--panel-2); border-color: var(--line); }
+  .btn svg { width: 16px; height: 16px; }
+
+  /* ---------- thumbnails ---------- */
+  .thumbs { display: flex; flex-wrap: wrap; gap: 8px; }
+  .thumbs:not(:empty) { margin: 6px 0 8px; }
+  .thumb { position: relative; width: 92px; height: 92px; border-radius: 10px; overflow: hidden; border: 1px solid var(--line-2); background: #000; cursor: zoom-in; }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .25s; }
+  .thumb:hover img { transform: scale(1.06); }
+  .thumb .x {
+    position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%; border: 0;
+    background: rgba(0,0,0,.7); color: #fff; font-size: 14px; line-height: 1; display: grid; place-items: center; opacity: 0; transition: .15s;
+  }
+  .thumb:hover .x { opacity: 1; }
+  .thumb .x:hover { background: var(--danger); }
+  @media (hover: none) { .thumb .x { opacity: 1; } }
+
+  /* ---------- toolbar ---------- */
+  .toolbar { display: flex; align-items: center; justify-content: space-between; margin: 26px 2px 12px; gap: 10px; flex-wrap: wrap; }
+  .tabs { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--line); padding: 4px; border-radius: 12px; }
+  .tabs button { background: transparent; border: 0; color: var(--muted); padding: 5px 14px; border-radius: 8px; transition: .15s; }
+  .tabs button:hover { color: var(--text); }
+  .tabs button.on { background: var(--line-2); color: var(--text); }
+  .tabs button em { font-style: normal; color: var(--faint); margin-left: 4px; font-size: 12px; }
+
+  /* ---------- list ---------- */
+  #list { display: grid; gap: 10px; }
+  .task {
+    display: grid; grid-template-columns: auto auto 1fr auto; gap: 10px; align-items: start;
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 12px 14px 6px;
+    transition: border-color .2s, opacity .3s, transform .2s, box-shadow .2s;
+    animation: pop .25s ease-out;
+  }
+  @keyframes pop { from { opacity: 0; transform: translateY(8px) scale(.98); } }
+  .task:hover { border-color: var(--line-2); box-shadow: 0 8px 30px -14px rgba(0,0,0,.8); }
+  .task.dragging { opacity: .35; }
+  .task.over-top { box-shadow: 0 -3px 0 0 var(--a1); }
+  .task.over-bottom { box-shadow: 0 3px 0 0 var(--a1); }
+  .grip { color: var(--faint); padding: 3px 4px; cursor: grab; border-radius: 6px; user-select: none; opacity: 0; transition: .15s; margin-top: 1px; }
+  .task:hover .grip { opacity: 1; }
+  .grip:hover { color: var(--text); }
+  @media (hover: none) { .grip { display: none; } .task { grid-template-columns: auto 1fr auto; padding-left: 12px; } }
+  .check {
+    width: 26px; height: 26px; border-radius: 9px; border: 2px solid var(--line-2); background: transparent; padding: 0; margin-top: 1px;
+    display: grid; place-items: center; transition: .2s; color: #07090f;
+  }
+  .check:hover { border-color: var(--a1); box-shadow: 0 0 0 4px rgba(139,123,255,.15); }
+  .check svg { width: 16px; height: 16px; stroke-dasharray: 24; stroke-dashoffset: 24; transition: stroke-dashoffset .3s .05s; }
+  .task.done .check { background: var(--grad); border-color: transparent; }
+  .task.done .check svg { stroke-dashoffset: 0; }
+  .body { min-width: 0; }
+  .t-title { font-weight: 600; font-size: 16px; overflow-wrap: anywhere; cursor: pointer; transition: color .2s; }
+  .t-desc { color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 2px; font-size: 14.5px; }
+  .task.done .t-title { color: var(--faint); text-decoration: line-through; text-decoration-color: var(--faint); }
+  .task.done .t-desc, .task.done .thumbs { opacity: .45; }
+  .t-desc a { color: var(--a2); }
+  .actions { display: flex; gap: 2px; opacity: 0; transition: .15s; }
+  .task:hover .actions, .task:focus-within .actions { opacity: 1; }
+  @media (hover: none) { .actions { opacity: 1; } }
+  .icon { border: 0; background: transparent; color: var(--muted); border-radius: 8px; width: 32px; height: 32px; display: grid; place-items: center; }
+  .icon:hover { background: var(--line); color: var(--text); }
+  .icon.del:hover { color: var(--danger); }
+  .icon svg { width: 17px; height: 17px; }
+  .task.editing { display: block; padding: 0; border: 0; background: none; box-shadow: none; }
+
+  .empty { text-align: center; color: var(--muted); padding: 50px 20px; border: 1px dashed var(--line-2); border-radius: var(--radius); }
+  .empty big { display: block; font-size: 38px; margin-bottom: 6px; }
+  .empty.win { border-color: rgba(61,220,151,.4); color: var(--ok); }
+
+  footer { margin-top: 34px; display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+
+  /* ---------- lightbox & toast ---------- */
+  #lightbox { position: fixed; inset: 0; background: rgba(5,6,10,.92); display: none; place-items: center; z-index: 50; cursor: zoom-out; padding: 20px; backdrop-filter: blur(6px); }
+  #lightbox.on { display: grid; }
+  #lightbox img { max-width: 100%; max-height: 100%; border-radius: 12px; box-shadow: 0 30px 80px rgba(0,0,0,.7); }
+  #toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 30px); opacity: 0; pointer-events: none; z-index: 60;
+    background: #1b2033; border: 1px solid var(--line-2); border-radius: 12px; padding: 10px 14px; display: flex; gap: 12px; align-items: center;
+    transition: .25s; box-shadow: 0 14px 40px rgba(0,0,0,.6); max-width: calc(100% - 32px);
+  }
+  #toast.on { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+  #toast button { background: none; border: 0; color: var(--a2); font-weight: 700; padding: 0; }
+
+  @media (max-width: 520px) {
+    .ring { width: 70px; height: 70px; }
+    .ring svg { width: 70px; height: 70px; }
+    .thumb { width: 78px; height: 78px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="hello" id="date"></div>
+      <h1 id="greet"></h1>
+      <div class="week" id="week"></div>
+    </div>
+    <div class="ring" id="ring">
+      <svg width="84" height="84" viewBox="0 0 64 64">
+        <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8b7bff"/><stop offset="1" stop-color="#38d6ff"/></linearGradient></defs>
+        <circle class="bg" cx="32" cy="32" r="27"/>
+        <circle class="fg" cx="32" cy="32" r="27" stroke-dasharray="169.65" stroke-dashoffset="169.65"/>
+      </svg>
+      <b><span id="ringText">0/0</span></b>
+    </div>
+  </header>
+
+  <div id="composer"></div>
+
+  <div class="toolbar">
+    <div class="tabs" id="tabs"></div>
+    <button class="btn ghost" id="uncheck" title="Uncheck everything for today">Reset today</button>
+  </div>
+
+  <div id="list"></div>
+
+  <footer>
+    <button class="btn ghost" id="export">Export backup</button>
+    <button class="btn ghost" id="import">Import backup</button>
+    <input type="file" id="importFile" accept="application/json" hidden>
+  </footer>
+</div>
+
+<div id="lightbox"><img alt=""></div>
+<div id="toast"><span></span><button hidden>Undo</button></div>
+
+<script>
+(() => {
+  'use strict';
+
+  /* ================= helpers ================= */
+  const h = (tag, props = {}, ...kids) => {
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(props)) {
+      if (k === 'class') e.className = v;
+      else if (k === 'text') e.textContent = v;
+      else if (k === 'html') e.innerHTML = v;      // only used with static icon strings
+      else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+      else if (v === true) e.setAttribute(k, '');
+      else if (v !== false && v != null) e.setAttribute(k, v);
+    }
+    for (const kid of kids.flat()) if (kid != null) e.append(kid);
+    return e;
+  };
+  const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+  const pad = n => String(n).padStart(2, '0');
+  const dayKey = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+  const ICON = {
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+    edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>',
+    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>',
+    image: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>',
+    plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  };
+
+  /* ================= storage ================= */
+  const idb = {
+    open() {
+      return new Promise((res, rej) => {
+        const r = indexedDB.open('daily-checklist', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('kv');
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+      });
+    },
+    async get() {
+      const db = await this.open();
+      return new Promise((res, rej) => {
+        const q = db.transaction('kv').objectStore('kv').get('state');
+        q.onsuccess = () => res(q.result);
+        q.onerror = () => rej(q.error);
+      });
+    },
+    async set(v) {
+      const db = await this.open();
+      return new Promise((res, rej) => {
+        const t = db.transaction('kv', 'readwrite');
+        t.objectStore('kv').put(v, 'state');
+        t.oncomplete = res;
+        t.onerror = () => rej(t.error);
+      });
+    },
+  };
+
+  let state = { tasks: [], done: {} };
+  let saveTimer;
+
+  async function load() {
+    let data;
+    try { data = await idb.get(); } catch {}
+    if (!data) { try { data = JSON.parse(localStorage.getItem('daily-checklist') || 'null'); } catch {} }
+    if (data && Array.isArray(data.tasks)) state = { tasks: data.tasks, done: data.done || {} };
+  }
+  function save() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+      try { await idb.set(state); }
+      catch {
+        try { localStorage.setItem('daily-checklist', JSON.stringify(state)); }
+        catch { toast('⚠️ Could not save — storage is full or blocked'); }
+      }
+    }, 150);
+  }
+
+  /* ================= images ================= */
+  async function toDataURL(file) {
+    const url = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+      const max = 1600, s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      return c.toDataURL('image/webp', 0.86);
+    } finally { URL.revokeObjectURL(url); }
+  }
+  const openImage = src => { const lb = $('#lightbox'); $('img', lb).src = src; lb.classList.add('on'); };
+  const $ = (s, el = document) => el.querySelector(s);
+
+  function thumbs(images, onRemove) {
+    return h('div', { class: 'thumbs' }, images.map((src, i) =>
+      h('div', { class: 'thumb', onclick: () => openImage(src) },
+        h('img', { src, alt: 'attachment' }),
+        onRemove && h('button', { class: 'x', type: 'button', title: 'Remove image', onclick: e => { e.stopPropagation(); onRemove(i); } }, '×'))));
+  }
+
+  /* ================= editor (used for "new" and "edit") ================= */
+  function createEditor({ task, onSave, onCancel, autofocus }) {
+    let images = [...(task?.images || [])];
+    const title = h('input', { class: 'f-title', type: 'text', placeholder: task ? 'Title' : 'What needs to be done today?', maxlength: 200 });
+    const desc = h('textarea', { class: 'f-desc', placeholder: 'Description (optional) — notes, details, links…', rows: 2 });
+    title.value = task?.title || '';
+    desc.value = task?.desc || '';
+    const strip = h('div');
+    const fileInput = h('input', { type: 'file', accept: 'image/*', multiple: true, hidden: true });
+
+    const grow = () => { desc.style.height = 'auto'; desc.style.height = Math.min(desc.scrollHeight, 260) + 'px'; };
+    desc.addEventListener('input', grow);
+
+    const drawStrip = () => { strip.replaceChildren(thumbs(images, i => { images.splice(i, 1); drawStrip(); })); };
+    const addFiles = async files => {
+      for (const f of files) {
+        try { images.push(await toDataURL(f)); } catch { toast('Could not read that image'); }
+      }
+      drawStrip();
+    };
+    fileInput.addEventListener('change', () => { addFiles([...fileInput.files]); fileInput.value = ''; });
+
+    const submit = () => {
+      const t = title.value.trim();
+      if (!t) {
+        root.classList.remove('shake'); void root.offsetWidth; root.classList.add('shake');
+        title.focus(); return;
+      }
+      onSave({ title: t, desc: desc.value.trim(), images: [...images] });
+      if (!task) { title.value = ''; desc.value = ''; images = []; grow(); drawStrip(); title.focus(); }
+    };
+
+    title.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+    desc.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submit(); } });
+    const esc = e => { if (e.key === 'Escape' && onCancel) onCancel(); };
+    title.addEventListener('keydown', esc); desc.addEventListener('keydown', esc);
+
+    const root = h('form', { class: 'editor', onsubmit: e => { e.preventDefault(); submit(); } },
+      title, desc, strip,
+      h('div', { class: 'bar' },
+        h('button', { class: 'btn', type: 'button', html: ICON.image + '<span>Image</span>', onclick: () => fileInput.click() }),
+        h('span', { class: 'hint', html: '<kbd>Ctrl</kbd>+<kbd>V</kbd> to paste an image · drag &amp; drop works too' }),
+        onCancel && h('button', { class: 'btn ghost', type: 'button', text: 'Cancel', onclick: onCancel }),
+        h('button', { class: 'btn primary', type: 'submit', html: (task ? ICON.check : ICON.plus) + `<span>${task ? 'Save' : 'Add task'}</span>` })),
+      fileInput,
+      h('div', { class: 'drop-msg', text: 'Drop image to attach' }));
+
+    // drag & drop
+    let depth = 0;
+    root.addEventListener('dragenter', e => { if ([...e.dataTransfer.types].includes('Files')) { depth++; root.classList.add('drag'); } });
+    root.addEventListener('dragleave', () => { if (--depth <= 0) { depth = 0; root.classList.remove('drag'); } });
+    root.addEventListener('dragover', e => { if ([...e.dataTransfer.types].includes('Files')) e.preventDefault(); });
+    root.addEventListener('drop', e => {
+      depth = 0; root.classList.remove('drag');
+      const files = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/'));
+      if (files.length) { e.preventDefault(); addFiles(files); }
+    });
+
+    root._addFiles = addFiles;
+    root._focus = () => title.focus();
+    drawStrip(); requestAnimationFrame(grow);
+    if (autofocus) setTimeout(() => title.focus(), 0);
+    return root;
+  }
+
+  /* ================= app ================= */
+  let filter = 'all';
+  let editingId = null;
+  let today = dayKey();
+  let mainEditor;
+  const doneToday = () => (state.done[today] ||= {});
+
+  function addTask(data) {
+    state.tasks.push({ id: uid(), ...data });
+    save(); render();
+  }
+  function toggle(id) {
+    const d = doneToday();
+    if (d[id]) delete d[id]; else d[id] = true;
+    save(); render();
+  }
+  function remove(id) {
+    const idx = state.tasks.findIndex(t => t.id === id);
+    const [task] = state.tasks.splice(idx, 1);
+    save(); render();
+    toast('Task deleted', () => { state.tasks.splice(idx, 0, task); save(); render(); });
+  }
+
+  const linkify = text => {
+    const frag = document.createDocumentFragment();
+    text.split(/(https?:\/\/[^\s<]+)/g).forEach((part, i) => {
+      frag.append(i % 2 ? h('a', { href: part, target: '_blank', rel: 'noopener noreferrer', text: part }) : part);
+    });
+    return frag;
+  };
+
+  function taskCard(t) {
+    if (editingId === t.id) {
+      const ed = createEditor({
+        task: t, autofocus: true,
+        onCancel: () => { editingId = null; render(); },
+        onSave: data => { Object.assign(t, data); editingId = null; save(); render(); },
+      });
+      return h('div', { class: 'task editing', 'data-id': t.id }, ed);
+    }
+    const isDone = !!doneToday()[t.id];
+    const card = h('div', { class: 'task' + (isDone ? ' done' : ''), 'data-id': t.id },
+      h('span', { class: 'grip', title: 'Drag to reorder', text: '⋮⋮',
+        onmousedown: () => { card.draggable = true; }, onmouseup: () => { card.draggable = false; } }),
+      h('button', { class: 'check', 'aria-label': isDone ? 'Mark as not done' : 'Mark as done', 'aria-pressed': String(isDone), html: ICON.check, onclick: () => toggle(t.id) }),
+      h('div', { class: 'body' },
+        h('div', { class: 't-title', text: t.title, onclick: () => toggle(t.id) }),
+        t.desc && h('div', { class: 't-desc' }, linkify(t.desc)),
+        t.images?.length ? thumbs(t.images) : null),
+      h('div', { class: 'actions' },
+        h('button', { class: 'icon', title: 'Edit', 'aria-label': 'Edit', html: ICON.edit, onclick: () => { editingId = t.id; render(); } }),
+        h('button', { class: 'icon del', title: 'Delete', 'aria-label': 'Delete', html: ICON.trash, onclick: () => remove(t.id) })));
+
+    // reorder via drag
+    card.addEventListener('dragstart', e => { card.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/x-task', t.id); });
+    card.addEventListener('dragend', () => { card.draggable = false; card.classList.remove('dragging'); clearOver(); });
+    card.addEventListener('dragover', e => {
+      if (!e.dataTransfer.types.includes('text/x-task')) return;
+      e.preventDefault(); clearOver();
+      const r = card.getBoundingClientRect();
+      card.classList.add(e.clientY < r.top + r.height / 2 ? 'over-top' : 'over-bottom');
+    });
+    card.addEventListener('drop', e => {
+      const from = e.dataTransfer.getData('text/x-task');
+      if (!from || from === t.id) return;
+      e.preventDefault();
+      const r = card.getBoundingClientRect(), after = e.clientY >= r.top + r.height / 2;
+      const [moved] = state.tasks.splice(state.tasks.findIndex(x => x.id === from), 1);
+      let to = state.tasks.findIndex(x => x.id === t.id);
+      state.tasks.splice(after ? to + 1 : to, 0, moved);
+      save(); render();
+    });
+    return card;
+  }
+  const clearOver = () => document.querySelectorAll('.over-top,.over-bottom').forEach(n => n.classList.remove('over-top', 'over-bottom'));
+
+  function render() {
+    // header
+    const now = new Date();
+    const hr = now.getHours();
+    $('#date').textContent = now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+    $('#greet').replaceChildren(hr < 5 ? 'Still up? ' : hr < 12 ? 'Good morning. ' : hr < 18 ? 'Good afternoon. ' : 'Good evening. ', h('span', { text: "Let's get it done." }));
+
+    const total = state.tasks.length;
+    const d = doneToday();
+    const nDone = state.tasks.filter(t => d[t.id]).length;
+    $('#ringText').textContent = `${nDone}/${total}`;
+    $('.ring .fg').style.strokeDashoffset = 169.65 * (1 - (total ? nDone / total : 0));
+
+    // last 7 days
+    const week = $('#week'); week.replaceChildren();
+    for (let i = 6; i >= 0; i--) {
+      const dt = new Date(); dt.setDate(dt.getDate() - i);
+      const k = dayKey(dt), dd = state.done[k] || {};
+      const c = state.tasks.filter(t => dd[t.id]).length;
+      const ratio = total ? c / total : 0;
+      week.append(h('i', {
+        class: i === 0 ? 'today' : '', title: `${dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}: ${c}/${total}`,
+        style: ratio ? `background:${ratio === 1 ? 'var(--ok)' : 'var(--a1)'};opacity:${(0.35 + 0.65 * ratio).toFixed(2)}` : '',
+      }));
+    }
+    week.append(h('small', { text: 'last 7 days' }));
+
+    // tabs
+    const tabs = $('#tabs'); tabs.replaceChildren();
+    [['all', 'All', total], ['open', 'To do', total - nDone], ['done', 'Done', nDone]].forEach(([k, label, n]) =>
+      tabs.append(h('button', { class: filter === k ? 'on' : '', onclick: () => { filter = k; render(); } }, label, h('em', { text: n }))));
+
+    // list
+    const list = $('#list'); list.replaceChildren();
+    const visible = state.tasks.filter(t => filter === 'all' || (filter === 'done') === !!d[t.id] || editingId === t.id);
+    if (!total) list.append(h('div', { class: 'empty' }, h('big', { text: '✨' }), 'Nothing here yet. Add your first task above.'));
+    else if (!visible.length) list.append(filter === 'open'
+      ? h('div', { class: 'empty win' }, h('big', { text: '🎉' }), 'All done for today. Nice work!')
+      : h('div', { class: 'empty' }, h('big', { text: '🌱' }), 'Nothing checked off yet.'));
+    else visible.forEach(t => list.append(taskCard(t)));
+  }
+
+  /* ================= toast ================= */
+  let toastTimer;
+  function toast(msg, undo) {
+    const el = $('#toast'), btn = $('button', el);
+    $('span', el).textContent = msg;
+    btn.hidden = !undo;
+    btn.onclick = () => { undo?.(); el.classList.remove('on'); };
+    el.classList.add('on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('on'), undo ? 6000 : 3500);
+  }
+
+  /* ================= global wiring ================= */
+  // Ctrl+V anywhere: goes into the editor you're typing in, otherwise into the "new task" box
+  document.addEventListener('paste', e => {
+    const files = [...(e.clipboardData?.items || [])].filter(i => i.kind === 'file' && i.type.startsWith('image/')).map(i => i.getAsFile()).filter(Boolean);
+    if (!files.length) return;
+    const ed = e.target.closest?.('.editor') || mainEditor;
+    e.preventDefault();
+    ed._addFiles(files);
+    if (ed === mainEditor && !e.target.closest?.('.editor')) ed._focus();
+  });
+
+  // stop the browser from navigating away if an image is dropped outside an editor
+  ['dragover', 'drop'].forEach(ev => window.addEventListener(ev, e => { if (e.dataTransfer?.types?.includes('Files') && !e.target.closest?.('.editor')) e.preventDefault(); }));
+
+  $('#lightbox').addEventListener('click', () => $('#lightbox').classList.remove('on'));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') $('#lightbox').classList.remove('on'); });
+
+  $('#uncheck').addEventListener('click', () => {
+    const prev = { ...doneToday() };
+    if (!Object.keys(prev).length) return;
+    state.done[today] = {}; save(); render();
+    toast('Today reset', () => { state.done[today] = prev; save(); render(); });
+  });
+
+  $('#export').addEventListener('click', () => {
+    const a = h('a', { href: URL.createObjectURL(new Blob([JSON.stringify(state)], { type: 'application/json' })), download: `checklist-${today}.json` });
+    a.click(); URL.revokeObjectURL(a.href);
+  });
+  $('#import').addEventListener('click', () => $('#importFile').click());
+  $('#importFile').addEventListener('change', async e => {
+    const f = e.target.files[0]; e.target.value = '';
+    if (!f) return;
+    try {
+      const data = JSON.parse(await f.text());
+      if (!Array.isArray(data.tasks)) throw 0;
+      if (!confirm('Replace your current checklist with this backup?')) return;
+      state = { tasks: data.tasks, done: data.done || {} };
+      save(); render(); toast('Backup imported');
+    } catch { toast('That file is not a valid backup'); }
+  });
+
+  // new day while the page is open → fresh unchecked list
+  const checkDay = () => { const k = dayKey(); if (k !== today) { today = k; render(); } };
+  setInterval(checkDay, 30000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkDay(); });
+
+  (async () => {
+    await load();
+    mainEditor = createEditor({ onSave: addTask });
+    $('#composer').append(mainEditor);
+    render();
+  })();
+})();
+</script>
+</body>
+</html>
