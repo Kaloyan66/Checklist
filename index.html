@@ -44,10 +44,6 @@
   .hello { font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
   h1 { margin: 4px 0 10px; font-size: clamp(26px, 5vw, 34px); line-height: 1.15; letter-spacing: -.02em; }
   h1 span { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .week { display: flex; gap: 6px; align-items: center; }
-  .week i { width: 10px; height: 10px; border-radius: 50%; background: var(--line-2); display: block; }
-  .week i.today { outline: 2px solid var(--line-2); outline-offset: 2px; }
-  .week small { color: var(--faint); font-size: 12px; margin-left: 6px; }
   .ring { position: relative; width: 84px; height: 84px; flex: none; }
   .ring svg { transform: rotate(-90deg); }
   .ring circle { fill: none; stroke-width: 7; }
@@ -71,8 +67,8 @@
   .editor input, .editor textarea {
     width: 100%; background: transparent; border: 0; outline: 0; color: var(--text); font: inherit; resize: none;
   }
-  .editor .f-title { font-size: 17px; font-weight: 600; padding: 4px 0; }
-  .editor .f-desc { color: var(--muted); padding: 2px 0 6px; min-height: 44px; max-height: 260px; }
+  .editor .f-title { font-size: 20px; font-weight: 700; padding: 4px 0 6px; color: #fff; letter-spacing: -.01em; }
+  .editor .f-desc { color: var(--muted); font-size: 14px; padding: 2px 0 6px; min-height: 44px; max-height: 260px; }
   .editor input::placeholder, .editor textarea::placeholder { color: var(--faint); }
   .editor .bar { display: flex; align-items: center; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
   .editor .hint { color: var(--faint); font-size: 12.5px; flex: 1; min-width: 160px; }
@@ -91,6 +87,54 @@
   .btn.ghost { background: transparent; border-color: transparent; color: var(--muted); }
   .btn.ghost:hover { color: var(--text); background: var(--panel-2); border-color: var(--line); }
   .btn svg { width: 16px; height: 16px; }
+
+
+  /* ---------- calendar ---------- */
+  .cal { background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; margin-bottom: 16px; }
+  .cal-head { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+  .cal-head .label { flex: 1; font-weight: 700; letter-spacing: .01em; padding-left: 4px; }
+  .navbtn { border: 1px solid var(--line); background: transparent; color: var(--muted); width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; font-size: 16px; line-height: 1; }
+  .navbtn:hover { color: var(--text); background: var(--line); }
+  .btn.sm { padding: 5px 11px; font-size: 13.5px; border-radius: 9px; }
+  .week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .day {
+    position: relative; border: 1px solid transparent; background: rgba(255,255,255,.025); color: var(--text); border-radius: 12px;
+    padding: 8px 2px 9px; display: flex; flex-direction: column; align-items: center; gap: 1px; transition: .15s; min-width: 0;
+  }
+  .day:hover { background: var(--line); }
+  .day small { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .day b { font-size: 19px; line-height: 1.2; }
+  .day .bar { width: 70%; max-width: 38px; height: 4px; border-radius: 4px; background: var(--line-2); margin-top: 5px; overflow: hidden; }
+  .day .bar i { display: block; height: 100%; background: var(--grad); }
+  .day .bar.full i { background: var(--ok); }
+  .day .bar.none { background: transparent; }
+  .day.today b { color: var(--a2); }
+  .day.sel { background: linear-gradient(135deg, rgba(139,123,255,.28), rgba(56,214,255,.18)); border-color: var(--a1); box-shadow: 0 6px 24px -10px rgba(139,123,255,.7); }
+  .day.past:not(.sel) { opacity: .6; }
+  .month { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .month .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .month .dow { text-align: center; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); padding-bottom: 4px; }
+  .mday { position: relative; height: 40px; border: 1px solid transparent; background: transparent; color: var(--text); border-radius: 10px; font-size: 14px; }
+  .mday:hover { background: var(--line); }
+  .mday.other { color: var(--faint); }
+  .mday.today { color: var(--a2); font-weight: 700; }
+  .mday.sel { background: linear-gradient(135deg, rgba(139,123,255,.3), rgba(56,214,255,.2)); border-color: var(--a1); }
+  .mday .dot { position: absolute; left: 50%; bottom: 4px; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: var(--a1); }
+  .mday .dot.full { background: var(--ok); }
+
+  .banner { display: flex; align-items: center; gap: 10px; justify-content: space-between; flex-wrap: wrap; background: rgba(255,200,87,.07); border: 1px solid rgba(255,200,87,.3); color: #ffd98a; border-radius: 12px; padding: 9px 14px; margin-bottom: 10px; font-size: 14px; }
+  .banner button { color: #ffd98a; border-color: rgba(255,200,87,.4); }
+
+  /* ---------- editor fields ---------- */
+  .lbl { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--a1); margin: 2px 0 0; }
+  .lbl.d { color: var(--faint); margin-top: 8px; }
+  .opts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+  .opts input[type=date] { width: auto; background: var(--panel); border: 1px solid var(--line-2); border-radius: 10px; padding: 6px 10px; color: var(--text); font: inherit; font-size: 14px; color-scheme: dark; }
+  .opts input[type=date]:focus { border-color: var(--a1); }
+  .rep { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 14px; cursor: pointer; user-select: none; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--panel); }
+  .rep:has(input:checked) { color: var(--a2); border-color: var(--a2); }
+  .rep input { width: auto; accent-color: var(--a2); margin: 0; }
+  .editor .bar2 { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 
   /* ---------- thumbnails ---------- */
   .thumbs { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -117,7 +161,7 @@
   /* ---------- list ---------- */
   #list { display: grid; gap: 10px; }
   .task {
-    display: grid; grid-template-columns: auto auto 1fr auto; gap: 10px; align-items: start;
+    display: grid; grid-template-columns: auto auto auto 1fr auto; gap: 8px; align-items: start;
     background: linear-gradient(180deg, var(--panel-2), var(--panel));
     border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 12px 14px 6px;
     transition: border-color .2s, opacity .3s, transform .2s, box-shadow .2s;
@@ -128,10 +172,12 @@
   .task.dragging { opacity: .35; }
   .task.over-top { box-shadow: 0 -3px 0 0 var(--a1); }
   .task.over-bottom { box-shadow: 0 3px 0 0 var(--a1); }
-  .grip { color: var(--faint); padding: 3px 4px; cursor: grab; border-radius: 6px; user-select: none; opacity: 0; transition: .15s; margin-top: 1px; }
+  .grip { color: var(--faint); padding: 3px 2px; cursor: grab; border-radius: 6px; user-select: none; opacity: .35; transition: .15s; margin-top: 2px; letter-spacing: -2px; }
   .task:hover .grip { opacity: 1; }
+  .num { min-width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; font-weight: 800; font-size: 14px; color: var(--a1); background: rgba(139,123,255,.12); border: 1px solid rgba(139,123,255,.25); font-variant-numeric: tabular-nums; }
+  .task.done .num { color: var(--faint); background: transparent; border-color: var(--line); }
   .grip:hover { color: var(--text); }
-  @media (hover: none) { .grip { display: none; } .task { grid-template-columns: auto 1fr auto; padding-left: 12px; } }
+  @media (hover: none) { .grip { display: none; } .task { grid-template-columns: auto auto 1fr auto; padding-left: 12px; } }
   .check {
     width: 26px; height: 26px; border-radius: 9px; border: 2px solid var(--line-2); background: transparent; padding: 0; margin-top: 1px;
     display: grid; place-items: center; transition: .2s; color: #07090f;
@@ -141,8 +187,9 @@
   .task.done .check { background: var(--grad); border-color: transparent; }
   .task.done .check svg { stroke-dashoffset: 0; }
   .body { min-width: 0; }
-  .t-title { font-weight: 600; font-size: 16px; overflow-wrap: anywhere; cursor: pointer; transition: color .2s; }
-  .t-desc { color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 2px; font-size: 14.5px; }
+  .t-title { font-weight: 700; font-size: 19px; line-height: 1.3; color: #fff; letter-spacing: -.01em; overflow-wrap: anywhere; cursor: pointer; transition: color .2s; padding-top: 1px; }
+  .badge { display: inline-block; vertical-align: middle; margin-left: 8px; font-size: 11px; font-weight: 600; letter-spacing: .04em; color: var(--a2); border: 1px solid rgba(56,214,255,.4); border-radius: 20px; padding: 0 8px; }
+  .t-desc { color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 6px; font-size: 13.5px; line-height: 1.55; border-left: 2px solid var(--line-2); padding-left: 10px; }
   .task.done .t-title { color: var(--faint); text-decoration: line-through; text-decoration-color: var(--faint); }
   .task.done .t-desc, .task.done .thumbs { opacity: .45; }
   .t-desc a { color: var(--a2); }
@@ -151,6 +198,7 @@
   @media (hover: none) { .actions { opacity: 1; } }
   .icon { border: 0; background: transparent; color: var(--muted); border-radius: 8px; width: 32px; height: 32px; display: grid; place-items: center; }
   .icon:hover { background: var(--line); color: var(--text); }
+  .icon:disabled { opacity: .2; pointer-events: none; }
   .icon.del:hover { color: var(--danger); }
   .icon svg { width: 17px; height: 17px; }
   .task.editing { display: block; padding: 0; border: 0; background: none; box-shadow: none; }
@@ -174,6 +222,9 @@
   #toast button { background: none; border: 0; color: var(--a2); font-weight: 700; padding: 0; }
 
   @media (max-width: 520px) {
+    .day b { font-size: 16px; }
+    .day small { font-size: 10px; letter-spacing: .03em; }
+    .week { gap: 3px; }
     .ring { width: 70px; height: 70px; }
     .ring svg { width: 70px; height: 70px; }
     .thumb { width: 78px; height: 78px; }
@@ -187,7 +238,6 @@
     <div>
       <div class="hello" id="date"></div>
       <h1 id="greet"></h1>
-      <div class="week" id="week"></div>
     </div>
     <div class="ring" id="ring">
       <svg width="84" height="84" viewBox="0 0 64 64">
@@ -199,13 +249,16 @@
     </div>
   </header>
 
+  <section class="cal" id="cal"></section>
+
   <div id="composer"></div>
 
   <div class="toolbar">
     <div class="tabs" id="tabs"></div>
-    <button class="btn ghost" id="uncheck" title="Uncheck everything for today">Reset today</button>
+    <button class="btn ghost" id="uncheck" title="Uncheck everything on this day">Reset day</button>
   </div>
 
+  <div id="banner"></div>
   <div id="list"></div>
 
   <footer>
@@ -223,6 +276,7 @@
   'use strict';
 
   /* ================= helpers ================= */
+  const $ = (s, el = document) => el.querySelector(s);
   const h = (tag, props = {}, ...kids) => {
     const e = document.createElement(tag);
     for (const [k, v] of Object.entries(props)) {
@@ -233,12 +287,22 @@
       else if (v === true) e.setAttribute(k, '');
       else if (v !== false && v != null) e.setAttribute(k, v);
     }
-    for (const kid of kids.flat()) if (kid != null) e.append(kid);
+    for (const kid of kids.flat()) if (kid != null && kid !== false) e.append(kid);
     return e;
   };
   const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
   const pad = n => String(n).padStart(2, '0');
   const dayKey = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const parseKey = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
+  const addDays = (k, n) => { const d = parseKey(k); d.setDate(d.getDate() + n); return dayKey(d); };
+  const fmt = (k, o) => parseKey(k).toLocaleDateString(undefined, o);
+  const niceDay = k => {
+    const t = dayKey();
+    if (k === t) return 'Today';
+    if (k === addDays(t, 1)) return 'Tomorrow';
+    if (k === addDays(t, -1)) return 'Yesterday';
+    return fmt(k, { weekday: 'long' });
+  };
 
   const ICON = {
     check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
@@ -246,6 +310,8 @@
     trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>',
     image: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>',
     plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+    up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>',
+    down: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
   };
 
   /* ================= storage ================= */
@@ -277,14 +343,22 @@
     },
   };
 
+  // task = { id, title, desc, images[], date: 'YYYY-MM-DD', repeat: 'daily' | '' }
+  // done  = { 'YYYY-MM-DD': { taskId: true } }
   let state = { tasks: [], done: {} };
   let saveTimer;
 
+  // older versions had no dates: those tasks were daily, so keep them repeating
+  function normalize(data) {
+    const first = Object.keys(data.done || {}).sort()[0] || dayKey();
+    const tasks = data.tasks.map(t => t.date ? t : { ...t, date: first, repeat: 'daily' });
+    return { tasks, done: data.done || {} };
+  }
   async function load() {
     let data;
     try { data = await idb.get(); } catch {}
     if (!data) { try { data = JSON.parse(localStorage.getItem('daily-checklist') || 'null'); } catch {} }
-    if (data && Array.isArray(data.tasks)) state = { tasks: data.tasks, done: data.done || {} };
+    if (data && Array.isArray(data.tasks)) state = normalize(data);
   }
   function save() {
     clearTimeout(saveTimer);
@@ -310,7 +384,6 @@
     } finally { URL.revokeObjectURL(url); }
   }
   const openImage = src => { const lb = $('#lightbox'); $('img', lb).src = src; lb.classList.add('on'); };
-  const $ = (s, el = document) => el.querySelector(s);
 
   function thumbs(images, onRemove) {
     return h('div', { class: 'thumbs' }, images.map((src, i) =>
@@ -320,12 +393,16 @@
   }
 
   /* ================= editor (used for "new" and "edit") ================= */
-  function createEditor({ task, onSave, onCancel, autofocus }) {
+  function createEditor({ task, date, onSave, onCancel, autofocus }) {
     let images = [...(task?.images || [])];
-    const title = h('input', { class: 'f-title', type: 'text', placeholder: task ? 'Title' : 'What needs to be done today?', maxlength: 200 });
-    const desc = h('textarea', { class: 'f-desc', placeholder: 'Description (optional) — notes, details, links…', rows: 2 });
+    const title = h('input', { class: 'f-title', type: 'text', placeholder: 'What needs to be done?', maxlength: 200, 'aria-label': 'Title' });
+    const desc = h('textarea', { class: 'f-desc', placeholder: 'Notes, details, links… (optional)', rows: 2, 'aria-label': 'Description' });
+    const dateIn = h('input', { type: 'date', 'aria-label': 'Date' });
+    const repeat = h('input', { type: 'checkbox' });
     title.value = task?.title || '';
     desc.value = task?.desc || '';
+    dateIn.value = task?.date || date || dayKey();
+    repeat.checked = task?.repeat === 'daily';
     const strip = h('div');
     const fileInput = h('input', { type: 'file', accept: 'image/*', multiple: true, hidden: true });
 
@@ -347,8 +424,8 @@
         root.classList.remove('shake'); void root.offsetWidth; root.classList.add('shake');
         title.focus(); return;
       }
-      onSave({ title: t, desc: desc.value.trim(), images: [...images] });
-      if (!task) { title.value = ''; desc.value = ''; images = []; grow(); drawStrip(); title.focus(); }
+      onSave({ title: t, desc: desc.value.trim(), images: [...images], date: dateIn.value || dayKey(), repeat: repeat.checked ? 'daily' : '' });
+      if (!task) { title.value = ''; desc.value = ''; images = []; repeat.checked = false; grow(); drawStrip(); title.focus(); }
     };
 
     title.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
@@ -357,10 +434,15 @@
     title.addEventListener('keydown', esc); desc.addEventListener('keydown', esc);
 
     const root = h('form', { class: 'editor', onsubmit: e => { e.preventDefault(); submit(); } },
-      title, desc, strip,
-      h('div', { class: 'bar' },
+      h('label', { class: 'lbl', text: 'Title' }), title,
+      h('label', { class: 'lbl d', text: 'Description' }), desc,
+      strip,
+      h('div', { class: 'opts' },
         h('button', { class: 'btn', type: 'button', html: ICON.image + '<span>Image</span>', onclick: () => fileInput.click() }),
-        h('span', { class: 'hint', html: '<kbd>Ctrl</kbd>+<kbd>V</kbd> to paste an image · drag &amp; drop works too' }),
+        dateIn,
+        h('label', { class: 'rep', title: 'Show this task every day from the chosen date' }, repeat, h('span', { text: 'Repeat daily' }))),
+      h('div', { class: 'bar2' },
+        h('span', { class: 'hint', html: '<kbd>Ctrl</kbd>+<kbd>V</kbd> pastes an image · drag &amp; drop works too' }),
         onCancel && h('button', { class: 'btn ghost', type: 'button', text: 'Cancel', onclick: onCancel }),
         h('button', { class: 'btn primary', type: 'submit', html: (task ? ICON.check : ICON.plus) + `<span>${task ? 'Save' : 'Add task'}</span>` })),
       fileInput,
@@ -379,24 +461,38 @@
 
     root._addFiles = addFiles;
     root._focus = () => title.focus();
+    root._setDate = k => { dateIn.value = k; };
     drawStrip(); requestAnimationFrame(grow);
     if (autofocus) setTimeout(() => title.focus(), 0);
     return root;
   }
 
-  /* ================= app ================= */
+  /* ================= app state & logic ================= */
   let filter = 'all';
   let editingId = null;
   let today = dayKey();
+  let sel = today;                       // the day being viewed
+  let monthOpen = false;
+  let viewMonth = sel.slice(0, 7);       // 'YYYY-MM' shown in the month grid
   let mainEditor;
-  const doneToday = () => (state.done[today] ||= {});
 
+  const doneFor = k => (state.done[k] ||= {});
+  const tasksFor = k => state.tasks.filter(t => t.repeat === 'daily' ? k >= t.date : t.date === k);
+  const stats = k => { const l = tasksFor(k), d = state.done[k] || {}; return { total: l.length, done: l.filter(t => d[t.id]).length }; };
+
+  function setSel(k) {
+    sel = k; viewMonth = k.slice(0, 7); editingId = null;
+    mainEditor?._setDate(k);
+    render();
+  }
   function addTask(data) {
     state.tasks.push({ id: uid(), ...data });
-    save(); render();
+    save();
+    if (data.date !== sel && !(data.repeat && data.date < sel)) toast(`Added to ${niceDay(data.date)}, ${fmt(data.date, { month: 'short', day: 'numeric' })}`);
+    render();
   }
   function toggle(id) {
-    const d = doneToday();
+    const d = doneFor(sel);
     if (d[id]) delete d[id]; else d[id] = true;
     save(); render();
   }
@@ -404,7 +500,18 @@
     const idx = state.tasks.findIndex(t => t.id === id);
     const [task] = state.tasks.splice(idx, 1);
     save(); render();
-    toast('Task deleted', () => { state.tasks.splice(idx, 0, task); save(); render(); });
+    toast(task.repeat ? 'Daily task deleted from all days' : 'Task deleted', () => { state.tasks.splice(idx, 0, task); save(); render(); });
+  }
+  function reorder(fromId, toId, after) {
+    const [m] = state.tasks.splice(state.tasks.findIndex(t => t.id === fromId), 1);
+    const to = state.tasks.findIndex(t => t.id === toId);
+    state.tasks.splice(after ? to + 1 : to, 0, m);
+    save(); render();
+  }
+  function nudge(id, dir) {
+    const list = tasksFor(sel), i = list.findIndex(t => t.id === id), j = i + dir;
+    if (j < 0 || j >= list.length) return;
+    reorder(id, list[j].id, dir > 0);
   }
 
   const linkify = text => {
@@ -415,7 +522,8 @@
     return frag;
   };
 
-  function taskCard(t) {
+  /* ================= rendering ================= */
+  function taskCard(t, n, count) {
     if (editingId === t.id) {
       const ed = createEditor({
         task: t, autofocus: true,
@@ -424,16 +532,19 @@
       });
       return h('div', { class: 'task editing', 'data-id': t.id }, ed);
     }
-    const isDone = !!doneToday()[t.id];
+    const isDone = !!doneFor(sel)[t.id];
     const card = h('div', { class: 'task' + (isDone ? ' done' : ''), 'data-id': t.id },
       h('span', { class: 'grip', title: 'Drag to reorder', text: '⋮⋮',
         onmousedown: () => { card.draggable = true; }, onmouseup: () => { card.draggable = false; } }),
+      h('span', { class: 'num', text: n, title: `Task ${n}` }),
       h('button', { class: 'check', 'aria-label': isDone ? 'Mark as not done' : 'Mark as done', 'aria-pressed': String(isDone), html: ICON.check, onclick: () => toggle(t.id) }),
       h('div', { class: 'body' },
-        h('div', { class: 't-title', text: t.title, onclick: () => toggle(t.id) }),
+        h('div', { class: 't-title', onclick: () => toggle(t.id) }, t.title, t.repeat ? h('span', { class: 'badge', text: '↻ daily' }) : null),
         t.desc && h('div', { class: 't-desc' }, linkify(t.desc)),
         t.images?.length ? thumbs(t.images) : null),
       h('div', { class: 'actions' },
+        h('button', { class: 'icon', title: 'Move up', 'aria-label': 'Move up', html: ICON.up, disabled: n === 1, onclick: () => nudge(t.id, -1) }),
+        h('button', { class: 'icon', title: 'Move down', 'aria-label': 'Move down', html: ICON.down, disabled: n === count, onclick: () => nudge(t.id, 1) }),
         h('button', { class: 'icon', title: 'Edit', 'aria-label': 'Edit', html: ICON.edit, onclick: () => { editingId = t.id; render(); } }),
         h('button', { class: 'icon del', title: 'Delete', 'aria-label': 'Delete', html: ICON.trash, onclick: () => remove(t.id) })));
 
@@ -450,56 +561,103 @@
       const from = e.dataTransfer.getData('text/x-task');
       if (!from || from === t.id) return;
       e.preventDefault();
-      const r = card.getBoundingClientRect(), after = e.clientY >= r.top + r.height / 2;
-      const [moved] = state.tasks.splice(state.tasks.findIndex(x => x.id === from), 1);
-      let to = state.tasks.findIndex(x => x.id === t.id);
-      state.tasks.splice(after ? to + 1 : to, 0, moved);
-      save(); render();
+      const r = card.getBoundingClientRect();
+      reorder(from, t.id, e.clientY >= r.top + r.height / 2);
     });
     return card;
   }
   const clearOver = () => document.querySelectorAll('.over-top,.over-bottom').forEach(n => n.classList.remove('over-top', 'over-bottom'));
 
+  function renderCalendar() {
+    const cal = $('#cal'); cal.replaceChildren();
+    const dow = (parseKey(sel).getDay() + 6) % 7;          // Monday = 0
+    const start = addDays(sel, -dow);
+    const mFmt = { month: 'long', year: 'numeric' };
+
+    cal.append(h('div', { class: 'cal-head' },
+      h('button', { class: 'navbtn', 'aria-label': 'Previous week', text: '‹', onclick: () => setSel(addDays(sel, -7)) }),
+      h('div', { class: 'label', text: `${fmt(start, { month: 'short', day: 'numeric' })} – ${fmt(addDays(start, 6), { month: 'short', day: 'numeric' })}` }),
+      sel !== today && h('button', { class: 'btn sm', text: 'Today', onclick: () => setSel(today) }),
+      h('button', { class: 'btn sm', text: monthOpen ? 'Hide month' : 'Month', onclick: () => { monthOpen = !monthOpen; render(); } }),
+      h('button', { class: 'navbtn', 'aria-label': 'Next week', text: '›', onclick: () => setSel(addDays(sel, 7)) })));
+
+    const week = h('div', { class: 'week' });
+    for (let i = 0; i < 7; i++) {
+      const k = addDays(start, i), st = stats(k);
+      const pct = st.total ? Math.round(100 * st.done / st.total) : 0;
+      week.append(h('button', {
+        class: 'day' + (k === sel ? ' sel' : '') + (k === today ? ' today' : '') + (k < today ? ' past' : ''),
+        title: `${fmt(k, { weekday: 'long', month: 'long', day: 'numeric' })} — ${st.done}/${st.total} done`,
+        onclick: () => setSel(k),
+      }, h('small', { text: fmt(k, { weekday: 'short' }) }), h('b', { text: parseKey(k).getDate() }),
+         h('span', { class: 'bar' + (!st.total ? ' none' : st.done === st.total ? ' full' : '') }, h('i', { style: `width:${pct}%` }))));
+    }
+    cal.append(week);
+
+    if (monthOpen) {
+      const [vy, vm] = viewMonth.split('-').map(Number);
+      const first = `${vy}-${pad(vm)}-01`;
+      const gridStart = addDays(first, -((parseKey(first).getDay() + 6) % 7));
+      const shiftMonth = n => { const d = new Date(vy, vm - 1 + n, 1); viewMonth = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; render(); };
+      const grid = h('div', { class: 'grid' }, ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(n => h('div', { class: 'dow', text: n })));
+      for (let i = 0; i < 42; i++) {
+        const k = addDays(gridStart, i);
+        if (i >= 35 && k.slice(0, 7) !== viewMonth) break;
+        const st = stats(k);
+        grid.append(h('button', {
+          class: 'mday' + (k === sel ? ' sel' : '') + (k === today ? ' today' : '') + (k.slice(0, 7) !== viewMonth ? ' other' : ''),
+          onclick: () => setSel(k),
+        }, String(parseKey(k).getDate()), st.total ? h('span', { class: 'dot' + (st.done === st.total ? ' full' : '') }) : null));
+      }
+      cal.append(h('div', { class: 'month' },
+        h('div', { class: 'cal-head' },
+          h('button', { class: 'navbtn', 'aria-label': 'Previous month', text: '‹', onclick: () => shiftMonth(-1) }),
+          h('div', { class: 'label', text: fmt(first, mFmt) }),
+          h('button', { class: 'navbtn', 'aria-label': 'Next month', text: '›', onclick: () => shiftMonth(1) })),
+        grid));
+    }
+  }
+
   function render() {
     // header
-    const now = new Date();
-    const hr = now.getHours();
-    $('#date').textContent = now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
-    $('#greet').replaceChildren(hr < 5 ? 'Still up? ' : hr < 12 ? 'Good morning. ' : hr < 18 ? 'Good afternoon. ' : 'Good evening. ', h('span', { text: "Let's get it done." }));
+    const hr = new Date().getHours();
+    $('#date').textContent = `${niceDay(sel)} · ${fmt(sel, { month: 'long', day: 'numeric' })}`;
+    $('#greet').replaceChildren(...(sel === today
+      ? [hr < 5 ? 'Still up? ' : hr < 12 ? 'Good morning. ' : hr < 18 ? 'Good afternoon. ' : 'Good evening. ', h('span', { text: "Let's get it done." })]
+      : sel > today ? ['Planning ahead. ', h('span', { text: 'Future you says thanks.' })]
+      : ['Looking back. ', h('span', { text: 'Here is that day.' })]));
 
-    const total = state.tasks.length;
-    const d = doneToday();
-    const nDone = state.tasks.filter(t => d[t.id]).length;
+    const day = tasksFor(sel);
+    const d = doneFor(sel);
+    const total = day.length;
+    const nDone = day.filter(t => d[t.id]).length;
     $('#ringText').textContent = `${nDone}/${total}`;
     $('.ring .fg').style.strokeDashoffset = 169.65 * (1 - (total ? nDone / total : 0));
 
-    // last 7 days
-    const week = $('#week'); week.replaceChildren();
-    for (let i = 6; i >= 0; i--) {
-      const dt = new Date(); dt.setDate(dt.getDate() - i);
-      const k = dayKey(dt), dd = state.done[k] || {};
-      const c = state.tasks.filter(t => dd[t.id]).length;
-      const ratio = total ? c / total : 0;
-      week.append(h('i', {
-        class: i === 0 ? 'today' : '', title: `${dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}: ${c}/${total}`,
-        style: ratio ? `background:${ratio === 1 ? 'var(--ok)' : 'var(--a1)'};opacity:${(0.35 + 0.65 * ratio).toFixed(2)}` : '',
-      }));
-    }
-    week.append(h('small', { text: 'last 7 days' }));
+    renderCalendar();
 
     // tabs
     const tabs = $('#tabs'); tabs.replaceChildren();
     [['all', 'All', total], ['open', 'To do', total - nDone], ['done', 'Done', nDone]].forEach(([k, label, n]) =>
       tabs.append(h('button', { class: filter === k ? 'on' : '', onclick: () => { filter = k; render(); } }, label, h('em', { text: n }))));
 
-    // list
+    // unfinished one-off tasks from earlier days
+    const banner = $('#banner'); banner.replaceChildren();
+    if (sel === today) {
+      const late = state.tasks.filter(t => t.repeat !== 'daily' && t.date < today && !(state.done[t.date] || {})[t.id]);
+      if (late.length) banner.append(h('div', { class: 'banner' },
+        h('span', { text: `${late.length} unfinished task${late.length > 1 ? 's' : ''} from earlier days` }),
+        h('button', { class: 'btn sm', text: 'Move to today', onclick: () => { late.forEach(t => { t.date = today; }); save(); render(); toast('Moved to today'); } })));
+    }
+
+    // list (numbers = position in the day's full list, so they stay put when filtering)
     const list = $('#list'); list.replaceChildren();
-    const visible = state.tasks.filter(t => filter === 'all' || (filter === 'done') === !!d[t.id] || editingId === t.id);
-    if (!total) list.append(h('div', { class: 'empty' }, h('big', { text: '✨' }), 'Nothing here yet. Add your first task above.'));
-    else if (!visible.length) list.append(filter === 'open'
-      ? h('div', { class: 'empty win' }, h('big', { text: '🎉' }), 'All done for today. Nice work!')
+    const rows = day.map((t, i) => [t, i + 1]).filter(([t]) => filter === 'all' || (filter === 'done') === !!d[t.id] || editingId === t.id);
+    if (!total) list.append(h('div', { class: 'empty' }, h('big', { text: sel < today ? '🕰️' : '✨' }), sel < today ? 'Nothing was planned for this day.' : 'Nothing planned for this day yet. Add a task above.'));
+    else if (!rows.length) list.append(filter === 'open'
+      ? h('div', { class: 'empty win' }, h('big', { text: '🎉' }), 'Everything done. Nice work!')
       : h('div', { class: 'empty' }, h('big', { text: '🌱' }), 'Nothing checked off yet.'));
-    else visible.forEach(t => list.append(taskCard(t)));
+    else rows.forEach(([t, n]) => list.append(taskCard(t, n, total)));
   }
 
   /* ================= toast ================= */
@@ -532,14 +690,14 @@
   document.addEventListener('keydown', e => { if (e.key === 'Escape') $('#lightbox').classList.remove('on'); });
 
   $('#uncheck').addEventListener('click', () => {
-    const prev = { ...doneToday() };
+    const k = sel, prev = { ...doneFor(k) };
     if (!Object.keys(prev).length) return;
-    state.done[today] = {}; save(); render();
-    toast('Today reset', () => { state.done[today] = prev; save(); render(); });
+    state.done[k] = {}; save(); render();
+    toast('Day reset', () => { state.done[k] = prev; save(); render(); });
   });
 
   $('#export').addEventListener('click', () => {
-    const a = h('a', { href: URL.createObjectURL(new Blob([JSON.stringify(state)], { type: 'application/json' })), download: `checklist-${today}.json` });
+    const a = h('a', { href: URL.createObjectURL(new Blob([JSON.stringify(state)], { type: 'application/json' })), download: `checklist-${dayKey()}.json` });
     a.click(); URL.revokeObjectURL(a.href);
   });
   $('#import').addEventListener('click', () => $('#importFile').click());
@@ -550,19 +708,22 @@
       const data = JSON.parse(await f.text());
       if (!Array.isArray(data.tasks)) throw 0;
       if (!confirm('Replace your current checklist with this backup?')) return;
-      state = { tasks: data.tasks, done: data.done || {} };
+      state = normalize(data);
       save(); render(); toast('Backup imported');
     } catch { toast('That file is not a valid backup'); }
   });
 
-  // new day while the page is open → fresh unchecked list
-  const checkDay = () => { const k = dayKey(); if (k !== today) { today = k; render(); } };
+  // midnight rollover while the page is open
+  const checkDay = () => {
+    const k = dayKey();
+    if (k !== today) { const wasToday = sel === today; today = k; if (wasToday) sel = k; mainEditor?._setDate(sel); render(); }
+  };
   setInterval(checkDay, 30000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) checkDay(); });
 
   (async () => {
     await load();
-    mainEditor = createEditor({ onSave: addTask });
+    mainEditor = createEditor({ date: sel, onSave: addTask });
     $('#composer').append(mainEditor);
     render();
   })();
