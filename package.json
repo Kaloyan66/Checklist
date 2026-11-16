@@ -1,0 +1,9 @@
+{
+  "name": "checklist",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@netlify/blobs": "^8.2.0",
+    "web-push": "^4.0.0"
+  }
+}
