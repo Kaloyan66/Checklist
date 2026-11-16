@@ -1,20 +1,13 @@
 // Stores the checklist online so every device that knows the sync code sees the same data.
 // The code itself is never stored: data lives under a SHA-256 hash of it.
-import { getStore } from '@netlify/blobs';
+import { openStore, json, sha256, namespaceOf } from '../lib/common.mjs';
 
 const MAX_STATE = 4_000_000;   // characters; images are stored separately
 const MAX_IMAGE = 5_500_000;
 
-const json = (body, status = 200) => new Response(JSON.stringify(body), {
-  status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' },
-});
-const sha256 = async s => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))]
-  .map(b => b.toString(16).padStart(2, '0')).join('');
-
 export async function handle(req, store) {
-  const code = req.headers.get('x-sync-key') || '';
-  if (!/^[A-Za-z0-9_-]{20,100}$/.test(code)) return json({ error: 'invalid sync code' }, 401);
-  const ns = await sha256('checklist-sync:' + code);
+  const ns = await namespaceOf(req);
+  if (!ns) return json({ error: 'invalid sync code' }, 401);
   const { pathname } = new URL(req.url);
 
   // images, addressed by the SHA-256 of their data URL
@@ -54,6 +47,6 @@ export async function handle(req, store) {
   return json({ error: 'method not allowed' }, 405);
 }
 
-export default req => handle(req, getStore({ name: 'checklist-sync', consistency: 'strong' }));
+export default req => handle(req, openStore());
 
 export const config = { path: ['/api/sync', '/api/sync/img/*'] };
